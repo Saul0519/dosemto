@@ -1,0 +1,36 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dot-market",
+  "compatibility_date": "2026-07-31",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "main": "./worker/index.ts",
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "dist/client",
+    "not_found_handling": "none",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dot-market-db",
+      // Replace this placeholder with the Database ID shown by Cloudflare D1.
+      "database_id": "00000000-0000-4000-8000-000000000000",
+      "migrations_dir": "drizzle"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "dot-market-files"
+    }
+  ],
+  "vars": {
+    "SUPER_ADMIN_EMAIL": "REPLACE_WITH_YOUR_LOGIN_EMAIL",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAEC_6YTC5GqN8zL3"
+  }
+}
