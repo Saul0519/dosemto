@@ -30,7 +30,7 @@
     }
   ],
   "vars": {
-    "SUPER_ADMIN_EMAIL": "REPLACE_WITH_YOUR_LOGIN_EMAIL",
-    "TURNSTILE_SITE_KEY": "0x4AAAAAAEC_6YTC5GqN8zL3"
+    "SUPER_ADMIN_EMAIL": "sihyung0519@gmail.com",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAEC_4kj8JOBejss_"
   }
 }
