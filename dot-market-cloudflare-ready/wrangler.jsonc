@@ -19,7 +19,7 @@
       "binding": "DB",
       "database_name": "dot-market-db",
       // Replace this placeholder with the Database ID shown by Cloudflare D1.
-      "database_id": "00000000-0000-4000-8000-000000000000",
+      "database_id": "02037e2f-ad98-4bb5-991a-a589187a08af",
       "migrations_dir": "drizzle"
     }
   ],
