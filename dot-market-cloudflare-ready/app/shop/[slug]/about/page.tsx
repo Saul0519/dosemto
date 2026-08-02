@@ -24,7 +24,11 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
   const shop = await getPublicShop(slug);
   if (!shop) notFound();
 
-  const about = shop.aboutText ? shop.aboutText.split(/\n{2,}/) : SHOP_PAGE.defaultAbout;
+  // A blank line starts a new paragraph; a single Enter stays a line break
+  // inside the current one. Managers type in a plain textarea and expect both.
+  const about = shop.aboutText
+    ? shop.aboutText.split(/\n{2,}/).map((block) => block.split("\n"))
+    : SHOP_PAGE.defaultAbout.map((block) => [block]);
 
   return (
     <div className="shop-about-page">
@@ -80,7 +84,16 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
               <h2>{SHOP_PAGE.aboutTitle}</h2>
             </div>
             <div className="service-description-copy">
-              {about.map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+              {about.map((lines, index) => (
+                <p key={index}>
+                  {lines.map((line, lineIndex) => (
+                    <span key={lineIndex}>
+                      {lineIndex > 0 && <br/>}
+                      {line}
+                    </span>
+                  ))}
+                </p>
+              ))}
             </div>
           </div>
         </section>

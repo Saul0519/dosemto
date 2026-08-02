@@ -263,7 +263,7 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
             <form className="shop-settings" onSubmit={save}>
               <div className="settings-title">
                 <div><p>SHOP SETTINGS</p><h2>{selected.name}</h2><span>/shop/{selected.slug}</span></div>
-                <div className="settings-preview-links"><Link href={`/shop/${selected.slug}/about`}>작품 설명 보기 ↗</Link><Link href={`/shop/${selected.slug}`}>주문 화면 보기 ↗</Link></div>
+                <div className="settings-preview-links"><Link href={`/shop/${selected.slug}/about`}>샵 소개 보기 ↗</Link><Link href={`/shop/${selected.slug}`}>주문 화면 보기 ↗</Link></div>
               </div>
 
               <section className="settings-card">
@@ -275,10 +275,10 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
               </section>
 
               <section className="settings-card service-editor-card">
-                <div className="settings-section-head"><span>02</span><div><h3>작품 설명 페이지</h3><p>작업 스타일, 신청 전 확인사항, 진행 과정 등을 자유롭게 적어주세요.</p></div></div>
+                <div className="settings-section-head"><span>02</span><div><h3>샵 소개 페이지</h3><p>작업 스타일, 신청 전 확인사항, 진행 과정 등을 자유롭게 적어주세요.</p></div></div>
                 <div className="service-copy-fields">
                   <label>상세 페이지 제목<input maxLength={100} value={draft.aboutTitle} onChange={(e) => setDraft({ ...draft, aboutTitle: e.target.value })} placeholder="예: 도트 감성을 살린 맞춤 픽셀 작품"/></label>
-                  <label>상세 설명<textarea maxLength={12000} rows={16} value={draft.aboutText} onChange={(e) => setDraft({ ...draft, aboutText: e.target.value })} placeholder={"작업에 대해 자유롭게 설명해 주세요.\n\n예시\n• 어떤 스타일로 작업하는지\n• 신청 전에 준비할 것\n• 수정 가능 범위\n• 작업 진행 순서"}/><small>줄바꿈이 고객 화면에 그대로 적용됩니다. {draft.aboutText.length.toLocaleString("ko-KR")}/12,000자</small></label>
+                  <label>상세 설명<textarea maxLength={12000} rows={16} value={draft.aboutText} onChange={(e) => setDraft({ ...draft, aboutText: e.target.value })} placeholder={"작업에 대해 자유롭게 설명해 주세요.\n\n예시\n• 어떤 스타일로 작업하는지\n• 신청 전에 준비할 것\n• 수정 가능 범위\n• 작업 진행 순서"}/><small>엔터 한 번은 줄바꿈, 두 번은 문단 나누기로 표시됩니다. {draft.aboutText.length.toLocaleString("ko-KR")}/12,000자</small></label>
                 </div>
                 <div className="portfolio-manager">
                   <div className="portfolio-manager-head"><div><b>작업 이미지</b><span>첫 번째 이미지가 대표 이미지로 표시됩니다. 최대 10장.</span></div><label className="plain-upload-button">{imageBusy ? "처리 중…" : "이미지 추가"}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple disabled={imageBusy || draft.images.length >= 10} onChange={uploadImages}/></label></div>
