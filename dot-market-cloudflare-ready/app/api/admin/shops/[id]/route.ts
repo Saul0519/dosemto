@@ -35,19 +35,34 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     if (!validWebhook(webhook)) {
       return Response.json({ error: "디스코드 웹훅 URL을 확인해 주세요." }, { status: 400 });
     }
-    const encrypted = await encryptWebhook(webhook);
-    webhookCiphertext = encrypted.ciphertext;
-    webhookIv = encrypted.iv;
+    try {
+      const encrypted = await encryptWebhook(webhook);
+      webhookCiphertext = encrypted.ciphertext;
+      webhookIv = encrypted.iv;
+    } catch {
+      // encryptWebhook throws when WEBHOOK_ENCRYPTION_KEY is missing or too
+      // short. Letting it escape produced an empty 500, which the panel then
+      // failed to parse — the operator saw a JSON error instead of the cause.
+      return Response.json({
+        error: "웹훅을 암호화할 수 없습니다. Worker 설정의 Variables and Secrets에 "
+          + "WEBHOOK_ENCRYPTION_KEY(24자 이상)를 추가한 뒤 다시 저장해 주세요.",
+      }, { status: 503 });
+    }
   }
 
-  await updateShopSettings(id, {
-    name,
-    description,
-    aboutTitle,
-    aboutText,
-    pricing: body.pricing,
-    webhookCiphertext,
-    webhookIv,
-  });
+  try {
+    await updateShopSettings(id, {
+      name,
+      description,
+      aboutTitle,
+      aboutText,
+      pricing: body.pricing,
+      webhookCiphertext,
+      webhookIv,
+    });
+  } catch {
+    return Response.json({ error: "샵 설정을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요." }, { status: 503 });
+  }
+
   return Response.json({ ok: true, shop: await getShopForManager(id, user.email) });
 }
