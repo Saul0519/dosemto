@@ -20,6 +20,8 @@ type OrderRow = {
   preview_content_type: string;
   original_object_key: string | null;
   original_content_type: string | null;
+  player_uuid: string | null;
+  player_name: string | null;
   status: OrderStatus;
   webhook_sent: number;
   created_at: string;
@@ -40,6 +42,7 @@ export type ManagedOrder = {
   cropLabel: string;
   originalFilename: string;
   hasOriginal: boolean;
+  playerName: string | null;
   status: OrderStatus;
   webhookSent: boolean;
   createdAt: string;
@@ -85,6 +88,9 @@ async function ensureOrdersTable() {
   // column error just means it is already there.
   await db.prepare("ALTER TABLE orders ADD COLUMN webhook_message_id TEXT")
     .run().catch(() => undefined);
+  // The verified Minecraft account that placed the order.
+  await db.prepare("ALTER TABLE orders ADD COLUMN player_uuid TEXT").run().catch(() => undefined);
+  await db.prepare("ALTER TABLE orders ADD COLUMN player_name TEXT").run().catch(() => undefined);
 }
 
 export async function setOrderMessageId(id: string, messageId: string) {
@@ -108,6 +114,7 @@ function toManagedOrder(row: OrderRow): ManagedOrder {
     cropLabel: row.crop_label,
     originalFilename: row.original_filename,
     hasOriginal: Boolean(row.original_object_key),
+    playerName: row.player_name,
     status: row.status,
     webhookSent: Boolean(row.webhook_sent),
     createdAt: row.created_at,
@@ -118,8 +125,8 @@ function toManagedOrder(row: OrderRow): ManagedOrder {
 const orderColumns = `o.id, o.shop_id, s.name AS shop_name, o.contact, o.note,
   o.grid_x, o.grid_y, o.tile_count, o.deadline, o.total_price, o.crop_label,
   o.original_filename, o.preview_object_key, o.preview_content_type,
-  o.original_object_key, o.original_content_type, o.status, o.webhook_sent,
-  o.created_at, o.updated_at`;
+  o.original_object_key, o.original_content_type, o.player_uuid, o.player_name,
+  o.status, o.webhook_sent, o.created_at, o.updated_at`;
 
 export async function createOrder(input: {
   id: string;
@@ -137,17 +144,21 @@ export async function createOrder(input: {
   previewContentType: string;
   originalObjectKey: string | null;
   originalContentType: string | null;
+  playerUuid: string;
+  playerName: string;
 }) {
   await ensureOrdersTable();
   await getD1().then((db) => db.prepare(`INSERT INTO orders (
     id, shop_id, contact, note, grid_x, grid_y, tile_count, deadline,
     total_price, crop_label, original_filename, preview_object_key,
-    preview_content_type, original_object_key, original_content_type
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(
+    preview_content_type, original_object_key, original_content_type,
+    player_uuid, player_name
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(
     input.id, input.shopId, input.contact, input.note, input.gridX, input.gridY,
     input.tileCount, input.deadline, input.totalPrice, input.cropLabel,
     input.originalFilename, input.previewObjectKey, input.previewContentType,
     input.originalObjectKey, input.originalContentType,
+    input.playerUuid, input.playerName,
   ).run());
 }
 

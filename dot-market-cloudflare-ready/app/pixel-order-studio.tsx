@@ -10,6 +10,7 @@ import {
 } from "react";
 import Link from "next/link";
 import TurnstileCaptcha from "./turnstile-captcha";
+import AccountChip from "./account-chip";
 
 type RGB = [number, number, number];
 
@@ -116,7 +117,13 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-export default function PixelOrderStudio({ shop, captchaSiteKey }: { shop: Shop; captchaSiteKey: string }) {
+export default function PixelOrderStudio({ shop, captchaSiteKey, playerName, loginConfigured }: {
+  shop: Shop;
+  captchaSiteKey: string;
+  /** Verified Minecraft account name, or null when signed out. */
+  playerName: string | null;
+  loginConfigured: boolean;
+}) {
   const [palette, setPalette] = useState<RGB[]>([]);
   const pricing = shop.pricing ?? FALLBACK_PRICING;
   const [file, setFile] = useState<File | null>(null);
@@ -363,6 +370,7 @@ export default function PixelOrderStudio({ shop, captchaSiteKey }: { shop: Shop;
           <Link className="active" href={`/shop/${shop.slug}`}>주문 제작</Link>
           <Link href={`/shop/${shop.slug}/about`}>샵 소개</Link>
         </nav>
+        <AccountChip playerName={playerName} next={`/shop/${shop.slug}`}/>
         <Link className="admin-link" href="/admin"><Icon name="lock" size={15}/> 샵 관리자</Link>
       </header>
 
@@ -489,12 +497,26 @@ export default function PixelOrderStudio({ shop, captchaSiteKey }: { shop: Shop;
             <small className="contact-hint">이 ID로만 연락이 갑니다. 보내기 전에 오타가 없는지 한 번 확인해 주세요.</small>
           </div>
 
-          <TurnstileCaptcha siteKey={captchaSiteKey} resetKey={captchaResetKey} onToken={setCaptchaToken}/>
+          {playerName ? <>
+            <div className="order-player">
+              <span>주문자</span>
+              <b>{playerName}</b>
+              <small>확인된 마인크래프트 계정으로 접수됩니다.</small>
+            </div>
 
-          <button className="order-button" type="button" onClick={submitOrder} disabled={orderState === "sending" || !captchaToken}>
-            {orderState === "sending" ? "보내는 중…" : !captchaSiteKey ? "봇 방지 설정이 필요합니다" : !captchaToken ? "봇 방지 확인을 먼저 해주세요" : orderState === "sent" ? "주문 전송 완료" : <><Icon name="discord" size={21}/> 주문 넣기 <span>→</span></>}
-          </button>
-          <p className={`order-status ${orderState}`}>{orderMessage || <><Icon name="lock" size={14}/> 변환 도안과 주문 내용이 샵 디스코드로 함께 전송됩니다.</>}</p>
+            <TurnstileCaptcha siteKey={captchaSiteKey} resetKey={captchaResetKey} onToken={setCaptchaToken}/>
+
+            <button className="order-button" type="button" onClick={submitOrder} disabled={orderState === "sending" || !captchaToken}>
+              {orderState === "sending" ? "보내는 중…" : !captchaSiteKey ? "봇 방지 설정이 필요합니다" : !captchaToken ? "봇 방지 확인을 먼저 해주세요" : orderState === "sent" ? "주문 전송 완료" : <><Icon name="discord" size={21}/> 주문 넣기 <span>→</span></>}
+            </button>
+            <p className={`order-status ${orderState}`}>{orderMessage || <><Icon name="lock" size={14}/> 변환 도안과 주문 내용이 샵 디스코드로 함께 전송됩니다.</>}</p>
+          </> : <div className="order-login">
+            <b>주문하려면 마인크래프트 로그인이 필요합니다</b>
+            <span>가짜 주문을 막기 위해 정품 계정만 접수합니다. 도안 변환과 PNG 다운로드는 로그인 없이 그대로 쓰실 수 있습니다.</span>
+            {loginConfigured
+              ? <a className="order-button" href={`/login?next=${encodeURIComponent(`/shop/${shop.slug}`)}`}>마인크래프트로 로그인 <span>→</span></a>
+              : <p className="order-status error">마인크래프트 로그인이 아직 설정되지 않았습니다. 샵 관리자에게 알려주세요.</p>}
+          </div>}
         </aside>
       </div>
 

@@ -1,6 +1,7 @@
 import { validateImageFile } from "../../../db/image-validation";
 import { createOrder, setOrderMessageId, setOrderWebhookResult } from "../../../db/orders";
 import { ACTION_LABELS, issueOrderTokens, randomToken } from "../../../db/order-actions";
+import { currentPlayer } from "../../../db/mc-session";
 import { getOrderShop } from "../../../db/shops";
 import { verifyTurnstile } from "../../../db/turnstile";
 import { decryptWebhook } from "../../../db/webhook-crypto";
@@ -43,6 +44,16 @@ export async function POST(request: Request) {
   const captcha = await verifyTurnstile(request, String(form.get("captchaToken") ?? ""));
   if (!captcha.ok) {
     return Response.json({ error: captcha.error }, { status: captcha.status });
+  }
+
+  // Every order is tied to a verified Minecraft account. Converting an image and
+  // downloading the pattern stay open; only submitting an order needs this.
+  const player = await currentPlayer(request).catch(() => null);
+  if (!player) {
+    return Response.json(
+      { error: "마인크래프트 계정으로 로그인한 뒤 주문할 수 있습니다." },
+      { status: 401 },
+    );
   }
 
   const shopSlug = String(form.get("shopSlug") ?? "").trim();
@@ -128,6 +139,8 @@ export async function POST(request: Request) {
       previewContentType: previewFile.mime,
       originalObjectKey,
       originalContentType: originalFile?.mime ?? null,
+      playerUuid: player.uuid,
+      playerName: player.name,
     });
   } catch {
     await env.BUCKET.delete(previewObjectKey);
@@ -161,6 +174,7 @@ export async function POST(request: Request) {
         ? `**처리하기**\n${actionLinks}\n\n각 링크는 한 번만 쓸 수 있습니다.`
         : undefined,
       fields: [
+        { name: "마인크래프트", value: player.name, inline: true },
         { name: "연락처", value: contact, inline: true },
         { name: "마감", value: `${deadline}일`, inline: true },
         { name: "예상 금액", value: `${calculatedPrice.toLocaleString("ko-KR")}원`, inline: true },

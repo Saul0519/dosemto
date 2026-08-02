@@ -4,6 +4,7 @@ import {
   cookieHeader,
   mcAuthConfig,
   readCookie,
+  REMEMBER_SECONDS,
   safeNextPath,
   signPlayer,
 } from "../../../../db/mc-session";
@@ -25,10 +26,10 @@ function back(origin: string, next: string, error: string) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const stateCookie = readCookie(request, MC_STATE_COOKIE) ?? "";
-  const separator = stateCookie.indexOf("|");
-  const expectedState = separator === -1 ? stateCookie : stateCookie.slice(0, separator);
-  const next = safeNextPath(separator === -1 ? "/" : stateCookie.slice(separator + 1));
+  // state | remember | next
+  const [expectedState = "", rememberFlag = "0", ...rest] = (readCookie(request, MC_STATE_COOKIE) ?? "").split("|");
+  const next = safeNextPath(rest.length ? rest.join("|") : "/");
+  const remember = rememberFlag === "1";
 
   const clearState = cookieHeader(MC_STATE_COOKIE, "", 0);
 
@@ -76,7 +77,7 @@ export async function GET(request: Request) {
     headers: [
       ["location", target.toString()],
       ["set-cookie", clearState],
-      ["set-cookie", cookieHeader(MC_SESSION_COOKIE, await signPlayer(player), 60 * 60 * 24 * 14)],
+      ["set-cookie", cookieHeader(MC_SESSION_COOKIE, await signPlayer(player), remember ? REMEMBER_SECONDS : null)],
     ],
   });
 }

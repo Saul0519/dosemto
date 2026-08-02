@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { listPublicShops } from "../db/shops";
+import AccountChip from "./account-chip";
+import { getPlayer } from "./session";
 import { DOSE_DISPLAY_FAMILIES } from "./dose-palette";
 import {
   FACTS,
@@ -19,7 +21,10 @@ export const dynamic = "force-dynamic";
 const won = (value: number) => `${value.toLocaleString("ko-KR")}원`;
 
 export default async function Home() {
-  const shops = await listPublicShops().catch(() => []);
+  const [shops, player] = await Promise.all([
+    listPublicShops().catch(() => []),
+    getPlayer().catch(() => null),
+  ]);
 
   return (
     <div className="market-page">
@@ -32,6 +37,7 @@ export default async function Home() {
           <nav className="market-nav" aria-label="주요 메뉴">
             {NAV.map((item) => <a href={item.href} key={item.href}>{item.label}</a>)}
           </nav>
+          <AccountChip playerName={player?.name ?? null} next="/"/>
           <Link className="admin-link" href="/admin">샵 관리자</Link>
         </div>
       </header>

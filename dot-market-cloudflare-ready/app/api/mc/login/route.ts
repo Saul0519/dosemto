@@ -13,6 +13,7 @@ const AUTHORIZE_URL = "https://mc-auth.com/oAuth2/authorize";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const next = safeNextPath(url.searchParams.get("next"));
+  const remember = url.searchParams.get("remember") === "1";
 
   const { clientId, configured } = await mcAuthConfig();
   if (!configured) {
@@ -35,9 +36,9 @@ export async function GET(request: Request) {
     status: 302,
     headers: {
       location: authorize.toString(),
-      // The state cookie also carries where to return to, so the callback does
-      // not have to trust anything in the query string.
-      "set-cookie": cookieHeader(MC_STATE_COOKIE, `${state}|${next}`, 600),
+      // The state cookie also carries the return path and the remember choice,
+      // so the callback does not have to trust anything in the query string.
+      "set-cookie": cookieHeader(MC_STATE_COOKIE, `${state}|${remember ? "1" : "0"}|${next}`, 600),
     },
   });
 }

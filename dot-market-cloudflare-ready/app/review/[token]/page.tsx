@@ -87,7 +87,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ token: 
             닉네임을 직접 적는 방식이 아니라, 실제 계정으로 확인된 이름만 올라갑니다.
           </p>
           {configured ? (
-            <a className="btn btn-solid" href={`/api/mc/login?next=${encodeURIComponent(`/review/${token}`)}`}>
+            <a className="btn btn-solid" href={`/login?next=${encodeURIComponent(`/review/${token}`)}`}>
               마인크래프트로 로그인 <span className="arrow" aria-hidden="true">→</span>
             </a>
           ) : (
