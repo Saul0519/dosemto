@@ -1,9 +1,20 @@
+import { currentPlayer } from "../../../../db/mc-session";
 import { submitReview } from "../../../../db/reviews";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
   const { token } = await context.params;
+
+  // The name shown on a review is the Minecraft account that wrote it, so the
+  // session is what supplies it — a client-sent name could impersonate anyone.
+  const player = await currentPlayer(request).catch(() => null);
+  if (!player) {
+    return Response.json(
+      { error: "마인크래프트 계정으로 로그인한 뒤 후기를 남길 수 있습니다." },
+      { status: 401 },
+    );
+  }
 
   let body: Record<string, unknown>;
   try {
@@ -21,7 +32,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     const result = await submitReview(token, {
       rating,
       body: String(body.body ?? ""),
-      displayName: String(body.displayName ?? ""),
+      player,
     });
     if (!result.ok) return Response.json({ error: result.error }, { status: 409 });
     return Response.json({ ok: true, shopSlug: result.shopSlug });

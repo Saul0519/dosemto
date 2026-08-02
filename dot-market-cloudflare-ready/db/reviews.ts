@@ -5,6 +5,7 @@ export type Review = {
   orderId: string;
   rating: number;
   body: string;
+  /** The Minecraft account name the reviewer signed in with. */
   displayName: string;
   createdAt: string;
 };
@@ -37,6 +38,9 @@ export async function ensureReviewsTable() {
     )`),
     db.prepare("CREATE INDEX IF NOT EXISTS reviews_shop_idx ON reviews (shop_id, created_at DESC)"),
   ]);
+
+  // The reviewer's verified Minecraft identity, added after the table shipped.
+  await db.prepare("ALTER TABLE reviews ADD COLUMN author_mc_uuid TEXT").run().catch(() => undefined);
 }
 
 export type ReviewInvite = {
@@ -87,7 +91,8 @@ export async function lookupReviewToken(token: string): Promise<ReviewInvite | n
 export async function submitReview(token: string, input: {
   rating: number;
   body: string;
-  displayName: string;
+  /** Taken from the signed Minecraft session, never from the form. */
+  player: { uuid: string; name: string };
 }) {
   const invite = await lookupReviewToken(token);
   if (!invite) return { ok: false as const, error: "쓸 수 없는 링크입니다." };
@@ -100,7 +105,6 @@ export async function submitReview(token: string, input: {
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
     return { ok: false as const, error: "별점은 1점에서 5점 사이로 골라주세요." };
   }
-  const displayName = input.displayName.trim().slice(0, 30) || "익명";
   const body = input.body.trim().slice(0, 1000);
 
   const db = await getD1();
@@ -110,8 +114,8 @@ export async function submitReview(token: string, input: {
   if (!burn.meta.changes) return { ok: false as const, error: "이미 후기를 남긴 주문입니다." };
 
   await db.prepare(
-    "INSERT INTO reviews (id, order_id, shop_id, rating, body, display_name) VALUES (?, ?, ?, ?, ?, ?)",
-  ).bind(crypto.randomUUID(), invite.orderId, invite.shopId, rating, body, displayName).run();
+    "INSERT INTO reviews (id, order_id, shop_id, rating, body, display_name, author_mc_uuid) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  ).bind(crypto.randomUUID(), invite.orderId, invite.shopId, rating, body, input.player.name, input.player.uuid).run();
 
   return { ok: true as const, shopSlug: invite.shopSlug, shopName: invite.shopName };
 }

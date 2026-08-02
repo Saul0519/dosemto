@@ -1141,3 +1141,9 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 .review-head > span { font-size: 13px; font-weight: 600; }
 .review-head time { margin-left: auto; color: var(--ink-3); font-family: var(--font-mono); font-size: 11px; }
 .review-list p { margin: 0; color: var(--ink-2); font-size: 14px; line-height: 1.8; }
+
+/* The reviewer's name comes from their signed-in Minecraft account. */
+.review-author { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--line); background: var(--paper-sunk); }
+.review-author > span { font-size: 12px; font-weight: 700; }
+.review-author > b { font-family: var(--font-mono); font-size: 15px; }
+.review-author > small { color: var(--ink-3); font-size: 11px; }

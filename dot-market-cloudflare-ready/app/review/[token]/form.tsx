@@ -5,9 +5,12 @@ import Link from "next/link";
 
 const RATINGS = [1, 2, 3, 4, 5];
 
-export default function ReviewForm({ token, shopSlug }: { token: string; shopSlug: string }) {
+export default function ReviewForm({ token, shopSlug, playerName }: {
+  token: string;
+  shopSlug: string;
+  playerName: string;
+}) {
   const [rating, setRating] = useState(0);
-  const [displayName, setDisplayName] = useState("");
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -21,7 +24,7 @@ export default function ReviewForm({ token, shopSlug }: { token: string; shopSlu
       const response = await fetch(`/api/review/${encodeURIComponent(token)}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ rating, displayName, body }),
+        body: JSON.stringify({ rating, body }),
       });
       const text = await response.text();
       const result = text ? JSON.parse(text) : {};
@@ -63,10 +66,11 @@ export default function ReviewForm({ token, shopSlug }: { token: string; shopSlu
         <span>{rating > 0 ? `${rating}점` : "고르지 않음"}</span>
       </fieldset>
 
-      <label>
-        표시할 이름 <small>비우면 익명</small>
-        <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={30} placeholder="닉네임"/>
-      </label>
+      <div className="review-author">
+        <span>표시할 이름</span>
+        <b>{playerName}</b>
+        <small>로그인한 마인크래프트 계정 이름입니다. 바꿀 수 없습니다.</small>
+      </div>
 
       <label>
         후기 <small>선택</small>
