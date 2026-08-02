@@ -1077,3 +1077,6 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
   html { scroll-behavior: auto; }
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+.admin-login ul.notice-list { margin: 14px 0; }
+.admin-login code { font-family: var(--font-mono); font-size: 12px; background: var(--paper-sunk); padding: 2px 6px; }
