@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPublicShop } from "../../../../db/shops";
+import { getShopRating, listShopReviews } from "../../../../db/reviews";
 import { SHOP_PAGE, SITE } from "../../../site-content";
 import AboutGallery from "./gallery";
 
@@ -23,6 +24,11 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
   const { slug } = await params;
   const shop = await getPublicShop(slug);
   if (!shop) notFound();
+
+  const [rating, reviews] = await Promise.all([
+    getShopRating(shop.id).catch(() => ({ average: 0, count: 0, completedOrders: 0 })),
+    listShopReviews(shop.id).catch(() => []),
+  ]);
 
   // A blank line starts a new paragraph; a single Enter stays a line break
   // inside the current one. Managers type in a plain textarea and expect both.
@@ -56,6 +62,12 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
             <span className="service-category">{SHOP_PAGE.specTitle}</span>
             <h1>{shop.aboutTitle || `${shop.name} 도안 주문`}</h1>
             <p className="service-by">by {shop.name}</p>
+            {rating.count > 0 && (
+              <p className="service-rating">
+                <b>★ {rating.average.toFixed(1)}</b>
+                <span>후기 {rating.count}건 · 완료 주문 {rating.completedOrders}건</span>
+              </p>
+            )}
             <p className="service-short-copy">
               {shop.description || "올린 이미지를 화가 이젤 팔레트로 바꿔 32×32 캔버스 단위로 잘라 드립니다."}
             </p>
@@ -95,6 +107,34 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
                 </p>
               ))}
             </div>
+          </div>
+        </section>
+
+        <section className="market-section" id="reviews" aria-labelledby="reviews-title">
+          <div className="wrap">
+            <div className="section-head">
+              <p className="eyebrow">REVIEWS</p>
+              <h2 id="reviews-title">주문한 사람들의 후기</h2>
+              <p>
+                {rating.count > 0
+                  ? `이 샵에서 마감된 주문 ${rating.completedOrders}건 중 ${rating.count}건에 후기가 달렸습니다. 후기는 주문한 사람에게만 발급되는 일회용 링크로 작성됩니다.`
+                  : "아직 후기가 없습니다. 작업이 마감되면 주문한 분께 후기 링크가 전달됩니다."}
+              </p>
+            </div>
+            {reviews.length > 0 && (
+              <ul className="review-list">
+                {reviews.map((review) => (
+                  <li key={review.id}>
+                    <div className="review-head">
+                      <b aria-label={`${review.rating}점`}>{"★".repeat(review.rating)}<span>{"★".repeat(5 - review.rating)}</span></b>
+                      <span>{review.displayName}</span>
+                      <time dateTime={review.createdAt}>{review.createdAt.slice(0, 10)}</time>
+                    </div>
+                    {review.body && <p>{review.body}</p>}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </section>
       </main>

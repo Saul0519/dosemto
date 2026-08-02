@@ -1,5 +1,6 @@
 import { validateImageFile } from "../../../db/image-validation";
-import { createOrder, setOrderWebhookResult } from "../../../db/orders";
+import { createOrder, setOrderMessageId, setOrderWebhookResult } from "../../../db/orders";
+import { ACTION_LABELS, issueOrderTokens, randomToken } from "../../../db/order-actions";
 import { getOrderShop } from "../../../db/shops";
 import { verifyTurnstile } from "../../../db/turnstile";
 import { decryptWebhook } from "../../../db/webhook-crypto";
@@ -17,7 +18,9 @@ function numberField(form: FormData, name: string) {
 function orderId() {
   const date = new Date();
   const day = `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}${String(date.getUTCDate()).padStart(2, "0")}`;
-  return `DO-${day}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
+  // Six hex characters off a UUID is 24 bits, which starts colliding within a
+  // single day's orders. randomToken draws from a wider, unambiguous alphabet.
+  return `DO-${day}-${randomToken(8)}`;
 }
 
 function safeFilename(value: string) {
@@ -132,6 +135,20 @@ export async function POST(request: Request) {
     return Response.json({ error: "주문 기록을 안전하게 저장하지 못했습니다. 다시 시도해 주세요." }, { status: 503 });
   }
 
+  // Single-use links so the shop can act straight from Discord. Issued after
+  // the order row exists; if this fails the notification still goes out and the
+  // admin page remains the way to change status.
+  const origin = new URL(request.url).origin;
+  let actionLinks = "";
+  try {
+    const tokens = await issueOrderTokens(id);
+    actionLinks = (["accept", "reject", "complete"] as const)
+      .map((action) => `[${ACTION_LABELS[action]}](${origin}/a/${tokens.actions[action]})`)
+      .join("  ·  ");
+  } catch {
+    actionLinks = "";
+  }
+
   const discordForm = new FormData();
   discordForm.append("payload_json", JSON.stringify({
     username: `${shop.name} 주문 알림`,
@@ -140,6 +157,9 @@ export async function POST(request: Request) {
     embeds: [{
       title: `${gridX}×${gridY} 도안 주문`,
       color: 0xff6157,
+      description: actionLinks
+        ? `**처리하기**\n${actionLinks}\n\n각 링크는 한 번만 쓸 수 있습니다.`
+        : undefined,
       fields: [
         { name: "연락처", value: contact, inline: true },
         { name: "마감", value: `${deadline}일`, inline: true },
@@ -162,12 +182,18 @@ export async function POST(request: Request) {
   const webhookController = new AbortController();
   const webhookTimeout = setTimeout(() => webhookController.abort(), 8_000);
   try {
-    const response = await fetch(webhook, {
+    // wait=true makes Discord return the created message, whose id is needed to
+    // edit the notification later when the shop acts on the order.
+    const response = await fetch(`${webhook}${webhook.includes("?") ? "&" : "?"}wait=true`, {
       method: "POST",
       body: discordForm,
       signal: webhookController.signal,
     });
     webhookSent = response.ok;
+    if (response.ok) {
+      const message = await response.json().catch(() => null) as { id?: string } | null;
+      if (message?.id) await setOrderMessageId(id, message.id);
+    }
   } catch {
     webhookSent = false;
   } finally {

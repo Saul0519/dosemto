@@ -79,6 +79,18 @@ async function ensureOrdersTable() {
     db.prepare("CREATE INDEX IF NOT EXISTS orders_shop_created_idx ON orders (shop_id, created_at DESC)"),
     db.prepare("CREATE INDEX IF NOT EXISTS orders_status_idx ON orders (status, created_at DESC)"),
   ]);
+
+  // Added after the table shipped, so CREATE TABLE above cannot introduce it on
+  // an existing database. SQLite has no ADD COLUMN IF NOT EXISTS; a duplicate
+  // column error just means it is already there.
+  await db.prepare("ALTER TABLE orders ADD COLUMN webhook_message_id TEXT")
+    .run().catch(() => undefined);
+}
+
+export async function setOrderMessageId(id: string, messageId: string) {
+  await getD1().then((db) =>
+    db.prepare("UPDATE orders SET webhook_message_id = ? WHERE id = ?").bind(messageId, id).run(),
+  ).catch(() => undefined);
 }
 
 function toManagedOrder(row: OrderRow): ManagedOrder {

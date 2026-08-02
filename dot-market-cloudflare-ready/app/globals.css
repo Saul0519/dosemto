@@ -1088,3 +1088,56 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
   color: var(--danger-ink);
 }
 .control-shop-list article > div:last-child button.danger:hover { border-color: var(--danger-ink); background: var(--danger-soft); }
+
+/* ============================================== order action + review pages
+   Reached from a one-shot link in Discord, usually on a phone. Single column,
+   nothing to hunt for.
+   ========================================================================= */
+
+.action-page { min-height: 100vh; background: var(--paper); }
+.action-shell { max-width: 560px; margin: 0 auto; padding: clamp(32px, 6vw, 64px) var(--gutter) 80px; }
+.action-card { border: 1px solid var(--line-2); background: var(--card); padding: clamp(24px, 4vw, 36px); display: grid; gap: 16px; justify-items: start; }
+.action-card h1 { margin: 0; font-family: var(--font-display); font-size: clamp(26px, 4vw, 34px); font-weight: 700; letter-spacing: -.04em; }
+.action-card > p { margin: 0; color: var(--ink-2); font-size: 14px; line-height: 1.8; }
+
+.action-facts { width: 100%; margin: 4px 0; border-top: 1px solid var(--line); }
+.action-facts > div { display: grid; grid-template-columns: 84px 1fr; gap: 14px; padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.action-facts dt { color: var(--ink-3); }
+.action-facts dd { margin: 0; font-family: var(--font-mono); overflow-wrap: anywhere; }
+
+.action-confirm, .action-done { width: 100%; display: grid; gap: 12px; justify-items: start; }
+.action-confirm .btn, .action-done .btn { width: 100%; }
+.action-note { margin: 0; color: var(--ink-3); font-size: 12px; line-height: 1.7; }
+.action-error { margin: 0; color: var(--danger-ink); font-size: 13px; }
+.action-done-title { margin: 0; font-size: 16px; font-weight: 700; color: var(--sage-ink); }
+.action-done p { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.8; }
+.action-review-link { display: block; width: 100%; padding: 11px 12px; border: 1px solid var(--line-2); background: var(--paper-sunk); font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; }
+
+/* review form */
+.review-form { width: 100%; display: grid; gap: 16px; }
+.review-form label { display: grid; gap: 6px; font-size: 12px; font-weight: 700; }
+.review-form label small { color: var(--ink-3); font-weight: 500; }
+.review-form input, .review-form textarea { width: 100%; padding: 10px; border: 1px solid var(--line-2); background: var(--paper); outline: none; font-size: 14px; resize: vertical; }
+.review-form input:focus, .review-form textarea:focus { border-color: var(--ink); }
+.review-form .btn { width: 100%; }
+
+.rating-picker { margin: 0; padding: 0; border: 0; display: flex; align-items: center; gap: 4px; }
+.rating-picker legend { float: left; width: 100%; margin-bottom: 6px; font-size: 12px; font-weight: 700; }
+.rating-picker button { padding: 0 2px; border: 0; background: transparent; color: var(--line-3); font-size: 30px; line-height: 1; cursor: pointer; transition: color .12s ease; }
+.rating-picker button.on { color: var(--coral); }
+.rating-picker button:hover { color: var(--coral-ink); }
+.rating-picker span { margin-left: 10px; color: var(--ink-3); font-size: 12px; }
+
+/* rating + reviews on the shop page */
+.service-rating { margin: -4px 0 0; display: flex; align-items: baseline; gap: 10px; }
+.service-rating b { color: var(--coral-ink); font-family: var(--font-mono); font-size: 16px; }
+.service-rating span { color: var(--ink-3); font-size: 12px; }
+
+.review-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.review-list li { padding: 20px; background: var(--paper); display: grid; gap: 8px; }
+.review-head { display: flex; align-items: baseline; gap: 12px; }
+.review-head b { color: var(--coral); font-size: 14px; letter-spacing: .1em; }
+.review-head b span { color: var(--line-3); }
+.review-head > span { font-size: 13px; font-weight: 600; }
+.review-head time { margin-left: auto; color: var(--ink-3); font-family: var(--font-mono); font-size: 11px; }
+.review-list p { margin: 0; color: var(--ink-2); font-size: 14px; line-height: 1.8; }
