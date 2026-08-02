@@ -359,17 +359,17 @@ export default function PixelOrderStudio({ shop, captchaSiteKey }: { shop: Shop;
           <span className="brand-mark"><i/><i/><i/><i/></span>
           <span>DOT MARKET</span>
         </Link>
-        <nav aria-label="주요 메뉴">
+        <nav className="market-nav" aria-label="주요 메뉴">
           <Link className="active" href={`/shop/${shop.slug}`}>주문 제작</Link>
-          <Link href={`/shop/${shop.slug}/about`}>작품 설명</Link>
+          <Link href={`/shop/${shop.slug}/about`}>샵 소개</Link>
         </nav>
-        <Link className="admin-link" href="/admin"><Icon name="lock" size={16}/> 관리자</Link>
+        <Link className="admin-link" href="/admin"><Icon name="lock" size={15}/> 샵 관리자</Link>
       </header>
 
       <section className="hero" id="studio">
-        <p className="eyebrow">{shop.name.toUpperCase()} · CUSTOM PIXEL CRAFT</p>
-        <h1>사진을, 원하는 크기의<br className="mobile-only"/> <em>픽셀 작품으로.</em></h1>
-        <p>{shop.description || "가로 크기와 잘라낼 방향을 고르면 32×32 격자와 가격을 자동으로 계산합니다."}</p>
+        <p className="eyebrow">{shop.name.toUpperCase()} · PAINTER&apos;S EASEL</p>
+        <h1>이미지를 올리고 가로 칸 수만 정하세요.</h1>
+        <p>세로 칸 수와 총 장수는 원본 비율대로 붙습니다. 도안 PNG는 주문하지 않아도 받아 갈 수 있습니다.</p>
       </section>
 
       <div className="workspace">
@@ -391,9 +391,9 @@ export default function PixelOrderStudio({ shop, captchaSiteKey }: { shop: Shop;
                 accept="image/png,image/jpeg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif"
                 onChange={(event: ChangeEvent<HTMLInputElement>) => setUploadedFile(event.target.files?.[0])}
               />
-              <span className="upload-icon"><Icon name="upload" size={34}/></span>
-              <strong>{file ? "다른 이미지로 바꾸기" : "이미지를 업로드하세요"}</strong>
-              <small>PNG · JPG · WEBP · GIF / 실제 파일 형식까지 확인</small>
+              <span className="upload-icon"><Icon name="upload" size={30}/></span>
+              <strong>{file ? "다른 이미지로 바꾸기" : "그릴 이미지를 올려주세요"}</strong>
+              <small>PNG · JPG · WEBP · GIF. 끌어다 놓아도 됩니다.</small>
               <button type="button" onClick={() => fileInputRef.current?.click()}>파일 선택</button>
               {file && <span className="file-pill">{file.name}</span>}
             </div>
@@ -427,13 +427,13 @@ export default function PixelOrderStudio({ shop, captchaSiteKey }: { shop: Shop;
 
           <div className="controls" id="how">
             <div className="control-block grid-control">
-              <label><Icon name="grid" size={18}/> 그림 크기</label>
+              <label><Icon name="grid" size={17}/> 가로 칸 수</label>
               <div className="dimension-row">
                 <button type="button" onClick={() => changePictureWidth(-1)} aria-label="그림 가로 크기 한 칸 줄이기">−</button>
                 <input className="picture-size-input" aria-label="그림 가로 격자 수" type="number" min={minimumGridX} max="30" value={gridX} onChange={(event) => setGridX(clamp(Number(event.target.value) || minimumGridX, minimumGridX, 30))}/>
                 <button type="button" onClick={() => changePictureWidth(1)} aria-label="그림 가로 크기 한 칸 늘리기">＋</button>
               </div>
-              <small>가로 {gridX}칸 × 32px = {outputWidth}px · 비율은 유지하고 세로 남는 부분만 자릅니다.</small>
+              <small>한 칸이 캔버스 한 장, 32px입니다. {gridX}칸이면 폭 {outputWidth}px. 세로는 사진 비율대로 붙고, 30칸까지 올릴 수 있습니다.</small>
             </div>
 
             <div className="control-block auto-result-block">
@@ -469,7 +469,7 @@ export default function PixelOrderStudio({ shop, captchaSiteKey }: { shop: Shop;
           </div>
 
           <div className="deadline-block">
-            <h3>마감 선택</h3>
+            <h3>마감일 <small style={{ color: "var(--ink-3)", fontWeight: 500 }}>7일이 기본가</small></h3>
             <div className="deadline-grid">
               {[1, 2, 3, 4, 5, 6, 7].map((day) => <button key={day} type="button" className={deadline === day ? "active" : ""} onClick={() => setDeadline(day)}>{day}일</button>)}
             </div>
@@ -485,15 +485,16 @@ export default function PixelOrderStudio({ shop, captchaSiteKey }: { shop: Shop;
 
           <div className="contact-fields">
             <label>연락받을 디스코드 ID <span>필수</span><input value={contact} onChange={(event) => setContact(event.target.value)} placeholder="예: dotorder_123"/></label>
-            <label>요청사항 <span>선택</span><textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="작업자가 확인할 내용을 적어주세요." rows={2}/></label>
+            <label>요청사항 <span>선택</span><textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="화가가 알아야 할 내용을 적어주세요." rows={2}/></label>
+            <small className="contact-hint">이 ID로만 연락이 갑니다. 보내기 전에 오타가 없는지 한 번 확인해 주세요.</small>
           </div>
 
           <TurnstileCaptcha siteKey={captchaSiteKey} resetKey={captchaResetKey} onToken={setCaptchaToken}/>
 
           <button className="order-button" type="button" onClick={submitOrder} disabled={orderState === "sending" || !captchaToken}>
-            {orderState === "sending" ? "전송 중…" : !captchaSiteKey ? "보안 인증 설정 필요" : !captchaToken ? "보안 확인을 완료해 주세요" : orderState === "sent" ? "주문 전송 완료" : <><Icon name="discord" size={23}/> 디스코드로 주문하기 <span>→</span></>}
+            {orderState === "sending" ? "보내는 중…" : !captchaSiteKey ? "봇 방지 설정이 필요합니다" : !captchaToken ? "봇 방지 확인을 먼저 해주세요" : orderState === "sent" ? "주문 전송 완료" : <><Icon name="discord" size={21}/> 주문 넣기 <span>→</span></>}
           </button>
-          <p className={`order-status ${orderState}`}>{orderMessage || <><Icon name="lock" size={14}/> 최종 이미지와 주문 정보가 함께 전송됩니다.</>}</p>
+          <p className={`order-status ${orderState}`}>{orderMessage || <><Icon name="lock" size={14}/> 변환 도안과 주문 내용이 샵 디스코드로 함께 전송됩니다.</>}</p>
         </aside>
       </div>
 

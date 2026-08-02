@@ -1,29 +1,36 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "@fontsource/gasoek-one/400.css";
-import "@fontsource/gowun-batang/400.css";
-import "@fontsource/gowun-batang/700.css";
+import { Geist_Mono } from "next/font/google";
+// The package's default 400.css/700.css carry latin only — the Korean glyphs
+// live in a separate subset. Only bold is loaded; display headings are the sole
+// user of this face, and the Korean subset is ~450 KB per weight.
+import "@fontsource/gowun-batang/korean-700.css";
+import "@fontsource/gowun-batang/latin-700.css";
 import "./globals.css";
+import { SITE } from "./site-content";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
+// Latin/numeric label face. Korean text is set in Pretendard, loaded from the
+// CDN in globals.css, with Gowun Batang for display headings.
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "DOT MARKET | 픽셀 주문 제작 마켓",
-  description: "제작자별 픽셀 주문 샵에서 이미지를 32×32 격자로 맞추고 가격과 마감일을 확인해 주문하세요.",
-  other: {
-    "codex-preview": "development",
+  title: {
+    default: `${SITE.name} · 화가 이젤 도안 주문소`,
+    template: `%s · ${SITE.name}`,
   },
+  description: SITE.description,
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
+  },
+  openGraph: {
+    type: "website",
+    locale: "ko_KR",
+    siteName: SITE.name,
+    title: `${SITE.name} · 화가 이젤 도안 주문소`,
+    description: SITE.description,
   },
 };
 
@@ -33,12 +40,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
-      </body>
+    // The font variable must sit on <html>: globals.css resolves --font-mono on
+    // :root, and a var() that is undefined there would void the whole property.
+    <html lang="ko" className={geistMono.variable}>
+      <head>
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous"/>
+      </head>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }

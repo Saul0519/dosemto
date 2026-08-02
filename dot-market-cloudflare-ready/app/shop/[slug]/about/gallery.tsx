@@ -7,7 +7,13 @@ type ShopImage = { id: string; filename: string; url: string };
 export default function AboutGallery({ images, shopName }: { images: ShopImage[]; shopName: string }) {
   const [selected, setSelected] = useState(0);
   if (images.length === 0) {
-    return <div className="service-gallery-empty"><div/><b>작업 이미지 준비 중</b><span>샵 관리자가 완성작과 작업 예시를 등록할 예정입니다.</span></div>;
+    return (
+      <div className="service-gallery-empty">
+        <div className="lattice"/>
+        <b>아직 등록된 작업 이미지가 없습니다.</b>
+        <span>샵에서 올리면 여기 표시됩니다.</span>
+      </div>
+    );
   }
   const current = images[Math.min(selected, images.length - 1)];
   return (

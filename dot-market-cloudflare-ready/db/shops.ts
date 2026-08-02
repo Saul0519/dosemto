@@ -130,7 +130,7 @@ async function ensureShopsTable() {
       "default-dot-order-shop",
       "dot-order",
       "DOT ORDER",
-      "이미지를 32×32 격자 작품으로 제작하는 기본 샵입니다.",
+      "올린 이미지를 화가 이젤 팔레트로 바꿔 32×32 캔버스 단위로 잘라 드립니다.",
       owner,
     ).run();
   }
