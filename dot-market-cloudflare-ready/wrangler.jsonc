@@ -36,8 +36,14 @@
     }
   ],
 
+  // Deploying replaces the Worker's plain-text variables with exactly this list,
+  // so anything added only in the dashboard is wiped on the next build. Public
+  // values belong here; secrets stay as Secrets, which deploys do not touch.
   "vars": {
     "SUPER_ADMIN_EMAIL": "sihyung0519@gmail.com",
-    "TURNSTILE_SITE_KEY": "0x4AAAAAAEC_4kj8JOBejss_"
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAEC_4kj8JOBejss_",
+    // Public half of the Mc-Auth credentials; it is visible in the login URL.
+    // The matching MC_AUTH_CLIENT_SECRET must be set as a Secret.
+    "MC_AUTH_CLIENT_ID": "3955111840157009112"
   }
 }
