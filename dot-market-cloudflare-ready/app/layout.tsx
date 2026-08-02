@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: `${SITE.name} · 화가 이젤 도안 주문소`,
+    default: `${SITE.name} · 그림 외주 사이트`,
     template: `%s · ${SITE.name}`,
   },
   description: SITE.description,
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: "ko_KR",
     siteName: SITE.name,
-    title: `${SITE.name} · 화가 이젤 도안 주문소`,
+    title: `${SITE.name} · 그림 외주 사이트`,
     description: SITE.description,
   },
 };

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { listPublicShops } from "../db/shops";
-import { DEFAULT_PRICING } from "../db/pricing";
 import { DOSE_DISPLAY_FAMILIES } from "./dose-palette";
 import {
   FACTS,
@@ -9,7 +8,6 @@ import {
   NAV,
   NOTICES,
   PALETTE_COPY,
-  PRICING_COPY,
   SHOPS_COPY,
   SITE,
   STEPS,
@@ -20,18 +18,8 @@ export const dynamic = "force-dynamic";
 
 const won = (value: number) => `${value.toLocaleString("ko-KR")}원`;
 
-// Mirrors the studio's rounding so the worked example here and the number in the
-// order summary can never drift apart.
-const quote = (tiles: number, tilePrice: number, multiplier: number) =>
-  Math.round((tiles * tilePrice * multiplier) / 100) * 100;
-
-const DEADLINES = [7, 6, 5, 4, 3, 2, 1];
-const EXAMPLE_TILES = 35;
-
 export default async function Home() {
   const shops = await listPublicShops().catch(() => []);
-  const { tilePrice, deadlineMultipliers } = DEFAULT_PRICING;
-  const exampleTotal = quote(EXAMPLE_TILES, tilePrice, deadlineMultipliers["7"]);
 
   return (
     <div className="market-page">
@@ -58,16 +46,10 @@ export default async function Home() {
               </h1>
               <p className="lede">{HERO.lede}</p>
               <div className="market-hero-actions">
-                {shops[0] ? (
-                  <Link className="btn btn-solid" href={`/shop/${shops[0].slug}`}>
-                    {HERO.ctaPrimary} <span className="arrow" aria-hidden="true">→</span>
-                  </Link>
-                ) : (
-                  <a className="btn btn-solid" href="#shops">
-                    {HERO.ctaPrimary} <span className="arrow" aria-hidden="true">→</span>
-                  </a>
-                )}
-                <a className="btn btn-line" href="#price">{HERO.ctaSecondary}</a>
+                <a className="btn btn-solid" href="#shops">
+                  {HERO.ctaPrimary} <span className="arrow" aria-hidden="true">→</span>
+                </a>
+                <a className="btn btn-line" href="#how">{HERO.ctaSecondary}</a>
               </div>
             </div>
 
@@ -123,56 +105,7 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="market-section" id="price">
-          <div className="wrap">
-            <div className="section-head">
-              <p className="eyebrow">{PRICING_COPY.eyebrow}</p>
-              <h2>{PRICING_COPY.title}</h2>
-              <p>{PRICING_COPY.body}</p>
-            </div>
-
-            <div className="price-layout">
-              <table className="price-table">
-                <caption>{PRICING_COPY.tableCaption}</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">마감</th>
-                    <th scope="col">배수</th>
-                    <th scope="col">캔버스 {EXAMPLE_TILES}장 기준</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {DEADLINES.map((day) => {
-                    const multiplier = deadlineMultipliers[String(day)];
-                    return (
-                      <tr className={day === 7 ? "base" : undefined} key={day}>
-                        <th scope="row">{day}일</th>
-                        <td className={multiplier > 1 ? "rush" : undefined}>×{multiplier.toFixed(2)}</td>
-                        <td>{won(quote(EXAMPLE_TILES, tilePrice, multiplier))}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-
-              <div className="price-example">
-                <h3>{PRICING_COPY.exampleTitle}</h3>
-                <dl>
-                  <div><dt>가로 칸 수</dt><dd>5칸 · 160px</dd></div>
-                  <div><dt>세로 칸 수</dt><dd>7칸 · 224px</dd></div>
-                  <div><dt>캔버스</dt><dd>5 × 7 = {EXAMPLE_TILES}장</dd></div>
-                  <div><dt>장당</dt><dd>{won(tilePrice)}</dd></div>
-                  <div><dt>마감 7일</dt><dd>×{deadlineMultipliers["7"].toFixed(2)}</dd></div>
-                  <div className="sum"><dt>합계</dt><dd>{won(exampleTotal)}</dd></div>
-                </dl>
-                <p>{PRICING_COPY.exampleNote}</p>
-                <p>{PRICING_COPY.rounding}</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="market-section band" id="shops">
+        <section className="market-section" id="shops">
           <div className="wrap">
             <div className="section-head">
               <p className="eyebrow">{SHOPS_COPY.eyebrow}</p>
@@ -225,7 +158,7 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="market-section" id="palette">
+        <section className="market-section band" id="palette">
           <div className="wrap">
             <div className="palette-layout">
               <div>
@@ -253,7 +186,7 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="market-section band" id="faq">
+        <section className="market-section" id="faq">
           <div className="wrap">
             <div className="section-head">
               <p className="eyebrow">FAQ</p>

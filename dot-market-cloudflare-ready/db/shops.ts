@@ -377,6 +377,57 @@ export async function getShopImageObjectKey(shopId: string, imageId: string) {
   return row?.object_key ?? null;
 }
 
+export async function countShopOrders(shopId: string) {
+  await ensureShopsTable();
+  const row = await getD1().then((db) =>
+    db.prepare("SELECT COUNT(*) AS count FROM orders WHERE shop_id = ?").bind(shopId).first<{ count: number }>(),
+  ).catch(() => null);
+  return row?.count ?? 0;
+}
+
+/**
+ * Removes a shop and everything that hangs off it.
+ *
+ * Orders are read through `JOIN shops`, so deleting only the shop row would
+ * make its orders vanish from every screen while their rows and R2 objects
+ * stayed behind forever. Collect the object keys first, then delete rows in
+ * child-to-parent order, and hand the keys back so the caller can purge R2.
+ */
+export async function deleteShopCascade(id: string) {
+  await ensureShopsTable();
+  const db = await getD1();
+
+  const shop = await db.prepare(`SELECT ${selectColumns} FROM shops WHERE id = ?`).bind(id).first<ShopRow>();
+  if (!shop) return null;
+
+  const images = await db.prepare("SELECT object_key FROM shop_images WHERE shop_id = ?")
+    .bind(id).all<{ object_key: string }>();
+
+  // The orders table may not exist yet on a database that has never taken one.
+  const orders = await db.prepare(
+    "SELECT preview_object_key, original_object_key FROM orders WHERE shop_id = ?",
+  ).bind(id).all<{ preview_object_key: string; original_object_key: string | null }>().catch(() => ({ results: [] }));
+
+  const objectKeys = [
+    ...images.results.map((row) => row.object_key),
+    ...orders.results.flatMap((row) => [row.preview_object_key, row.original_object_key]),
+  ].filter((key): key is string => Boolean(key));
+
+  await db.batch([
+    db.prepare("DELETE FROM shop_images WHERE shop_id = ?").bind(id),
+    db.prepare("DELETE FROM shops WHERE id = ?").bind(id),
+  ]);
+  await db.prepare("DELETE FROM orders WHERE shop_id = ?").bind(id).run().catch(() => undefined);
+
+  return {
+    slug: shop.slug,
+    name: shop.name,
+    imageCount: images.results.length,
+    orderCount: orders.results.length,
+    objectKeys,
+  };
+}
+
 export async function updateShopControl(id: string, input: {
   managerEmail: string;
   active: boolean;

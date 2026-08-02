@@ -24,7 +24,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string; imageId: string }> }) {
   const user = await getChatGPTUser();
-  if (!user) return Response.json({ error: "ChatGPT 로그인이 필요합니다." }, { status: 401 });
+  if (!user) return Response.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 });
   const { id, imageId } = await context.params;
   if (!(await getShopForManager(id, user.email))) {
     return Response.json({ error: "이 샵을 관리할 권한이 없습니다." }, { status: 403 });

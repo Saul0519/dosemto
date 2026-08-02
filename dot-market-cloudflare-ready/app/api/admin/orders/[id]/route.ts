@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const user = await getChatGPTUser();
-  if (!user) return Response.json({ error: "ChatGPT 로그인이 필요합니다." }, { status: 401 });
+  if (!user) return Response.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 });
 
   const { id } = await context.params;
   const body = await request.json() as { status?: unknown };
