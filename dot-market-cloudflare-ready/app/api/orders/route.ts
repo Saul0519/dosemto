@@ -1,5 +1,5 @@
 import { validateImageFile } from "../../../db/image-validation";
-import { createOrder, setOrderMessageId, setOrderWebhookResult, countActiveOrders } from "../../../db/orders";
+import { createOrder, setOrderMessageId, setOrderWebhookResult, countActiveOrders, findOpenOrderFor } from "../../../db/orders";
 import { randomToken } from "../../../db/order-actions";
 import { currentUser } from "../../../db/discord-session";
 import { postOrderMessage } from "../../../db/discord-bot";
@@ -69,6 +69,15 @@ export async function POST(request: Request) {
 
   // Checked here as well as in the browser, because the queue can fill between
   // loading the page and pressing the button.
+  // One open order per person per shop. Checked before the slot gate so someone
+  // holding an order is told that, rather than being told the shop is busy.
+  const open = await findOpenOrderFor(shop.id, orderer.id).catch(() => null);
+  if (open) {
+    return Response.json({
+      error: `이미 ${shop.name}에 진행 중인 주문(${open.id})이 있습니다. 그 작업이 끝나거나 취소된 뒤에 다시 주문해 주세요.`,
+    }, { status: 409 });
+  }
+
   const slots = slotState(shop, await countActiveOrders(shop.id).catch(() => 0));
   if (slots.full) {
     return Response.json({

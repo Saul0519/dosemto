@@ -2,8 +2,10 @@ import Link from "next/link";
 import { countActiveOrdersByShop } from "../db/orders";
 import { listPublicShops } from "../db/shops";
 import { slotState } from "../db/slots";
-import { getShopRating } from "../db/reviews";
+import { listShopRatings } from "../db/reviews";
+import { SHOPS_PER_PAGE, SHOP_SORTS, parsePage, parseSort, sortShops } from "../db/shop-sort";
 import AccountChip from "./account-chip";
+import ShuffleButton from "./shuffle-button";
 import { getUser } from "./session";
 import { DOSE_DISPLAY_FAMILIES } from "./dose-palette";
 import {
@@ -23,16 +25,49 @@ export const dynamic = "force-dynamic";
 
 const won = (value: number) => `${value.toLocaleString("ko-KR")}원`;
 
-export default async function Home() {
-  const [shops, user] = await Promise.all([
+const NO_RATING = { average: 0, count: 0, completedOrders: 0 };
+
+export default async function Home({ searchParams }: {
+  searchParams: Promise<{ sort?: string; page?: string; seed?: string }>;
+}) {
+  const params = await searchParams;
+  const sort = parseSort(params.sort);
+
+  const [allShops, user, ratings, activeOrders] = await Promise.all([
     listPublicShops().catch(() => []),
     getUser().catch(() => null),
+    listShopRatings().catch(() => new Map()),
+    countActiveOrdersByShop().catch(() => new Map<string, number>()),
   ]);
-  const ratings = new Map(await Promise.all(shops.map(async (shop) =>
-    [shop.id, await getShopRating(shop.id).catch(() => null)] as const,
-  )));
-  // One grouped query rather than one per shop.
-  const activeOrders = await countActiveOrdersByShop().catch(() => new Map<string, number>());
+
+  // The shuffle lives in the URL: this page renders more than once per request,
+  // so a seed invented here would differ between those renders and the order
+  // would not survive hydration. ShuffleButton picks a new one on click.
+  const seed = Number.parseInt(params.seed ?? "", 10) || 1;
+
+  const sorted = sortShops(allShops.map((shop) => {
+    const slots = slotState(shop, activeOrders.get(shop.id) ?? 0);
+    return {
+      ...shop,
+      slots,
+      rating: ratings.get(shop.id) ?? NO_RATING,
+      orderable: shop.webhookConfigured && !slots.full,
+    };
+  }), sort, seed);
+
+  const pageCount = Math.max(1, Math.ceil(sorted.length / SHOPS_PER_PAGE));
+  const page = Math.min(parsePage(params.page), pageCount);
+  const shops = sorted.slice((page - 1) * SHOPS_PER_PAGE, page * SHOPS_PER_PAGE);
+
+  const listHref = (next: { sort?: string; page?: number }) => {
+    const query = new URLSearchParams();
+    const key = next.sort ?? sort;
+    if (key !== "recommended") query.set("sort", key);
+    if (next.page && next.page > 1) query.set("page", String(next.page));
+    if (key === "random") query.set("seed", String(seed));
+    const search = query.toString();
+    return `${search ? `/?${search}` : "/"}#shops`;
+  };
 
   return (
     <div className="market-page">
@@ -127,7 +162,30 @@ export default async function Home() {
               <p>{SHOPS_COPY.note}</p>
             </div>
             <div className="directory-heading">
-              <span>{shops.length}개 운영 중</span>
+              <span>{sorted.length}개 운영 중{pageCount > 1 && ` · ${page}/${pageCount} 쪽`}</span>
+              {sorted.length > 1 && (
+                <nav className="shop-sort" aria-label="샵 정렬">
+                  {SHOP_SORTS.map((option) => option.key === "random" ? (
+                    <ShuffleButton
+                      key={option.key}
+                      active={sort === "random"}
+                      label={option.label}
+                      hint={option.hint}
+                    />
+                  ) : (
+                    <Link
+                      key={option.key}
+                      href={listHref({ sort: option.key, page: 1 })}
+                      className={option.key === sort ? "active" : ""}
+                      aria-current={option.key === sort ? "true" : undefined}
+                      title={option.hint}
+                      scroll={false}
+                    >
+                      {option.label}
+                    </Link>
+                  ))}
+                </nav>
+              )}
             </div>
             <div className="shop-grid">
               {shops.map((shop) => (
@@ -153,20 +211,17 @@ export default async function Home() {
                   <div className="shop-card-copy">
                     <div>
                       <small>/{shop.slug}</small>
-                      {(() => {
-                        const slots = slotState(shop, activeOrders.get(shop.id) ?? 0);
-                        if (!shop.webhookConfigured) return <span className="preparing">준비 중</span>;
-                        if (slots.full) return <span className="closed">접수 마감</span>;
-                        if (slots.enabled) return <span className="ready">슬롯 {slots.used}/{slots.max}</span>;
-                        return <span className="ready">주문 가능</span>;
-                      })()}
+                      {!shop.webhookConfigured ? <span className="preparing">준비 중</span>
+                        : shop.slots.full ? <span className="closed">접수 마감</span>
+                        : shop.slots.enabled ? <span className="ready">슬롯 {shop.slots.used}/{shop.slots.max}</span>
+                        : <span className="ready">주문 가능</span>}
                     </div>
                     <h3><Link className="shop-card-open" href={`/shop/${shop.slug}/about`}>{shop.name}</Link></h3>
-                    {(ratings.get(shop.id)?.count ?? 0) > 0 && (
+                    {shop.rating.count > 0 && (
                       <Link className="card-rating" href={`/shop/${shop.slug}/about#reviews`}>
-                        <b aria-hidden="true">{"★".repeat(Math.round(ratings.get(shop.id)!.average))}<i>{"★".repeat(5 - Math.round(ratings.get(shop.id)!.average))}</i></b>
-                        <strong>{ratings.get(shop.id)!.average.toFixed(1)}</strong>
-                        <span>({ratings.get(shop.id)!.count})</span>
+                        <b aria-hidden="true">{"★".repeat(Math.round(shop.rating.average))}<i>{"★".repeat(5 - Math.round(shop.rating.average))}</i></b>
+                        <strong>{shop.rating.average.toFixed(1)}</strong>
+                        <span>({shop.rating.count})</span>
                         <em>후기 보기</em>
                       </Link>
                     )}
@@ -187,6 +242,23 @@ export default async function Home() {
                 </div>
               )}
             </div>
+            {pageCount > 1 && (
+              <nav className="shop-paging" aria-label="샵 목록 페이지">
+                <Link
+                  href={listHref({ page: page - 1 })}
+                  className={page === 1 ? "disabled" : ""}
+                  aria-disabled={page === 1 ? "true" : undefined}
+                  scroll={false}
+                >← 이전</Link>
+                <span>{page} / {pageCount}</span>
+                <Link
+                  href={listHref({ page: page + 1 })}
+                  className={page === pageCount ? "disabled" : ""}
+                  aria-disabled={page === pageCount ? "true" : undefined}
+                  scroll={false}
+                >다음 →</Link>
+              </nav>
+            )}
           </div>
         </section>
 

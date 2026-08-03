@@ -55,7 +55,25 @@ async function getD1() {
   return env.DB;
 }
 
+/**
+ * Schema setup, once per isolate rather than once per query.
+ *
+ * Every helper in this file called this first, so a single page view replayed
+ * the CREATEs and ALTERs dozens of times. Each statement is cheap on its own,
+ * but each one is also a round trip to D1, and that is what the site felt like.
+ * A failure clears the latch so the next request retries rather than running
+ * against a half-built schema.
+ */
+let migrateOrdersTableReady: Promise<void> | null = null;
+
 async function ensureOrdersTable() {
+  if (!migrateOrdersTableReady) {
+    migrateOrdersTableReady = migrateOrdersTable().catch((error) => { migrateOrdersTableReady = null; throw error; });
+  }
+  return migrateOrdersTableReady;
+}
+
+async function migrateOrdersTable() {
   const db = await getD1();
   await db.batch([
     db.prepare(`CREATE TABLE IF NOT EXISTS orders (
@@ -337,4 +355,24 @@ export async function countActiveOrdersByShop(): Promise<Map<string, number>> {
     `SELECT shop_id, COUNT(*) AS count FROM orders WHERE status IN (${OPEN_STATUSES}) GROUP BY shop_id`,
   ).all<{ shop_id: string; count: number }>()).catch(() => ({ results: [] }));
   return new Map(rows.results.map((row) => [row.shop_id, row.count]));
+}
+
+/**
+ * The order this customer already has open at this shop, if any.
+ *
+ * One at a time per shop: a second order while the first is still being drawn
+ * is nearly always a double submit or someone jumping the queue. Finishing or
+ * cancelling the first frees them to order again, so this limits how much work
+ * one person can hold rather than how many times they may come back.
+ */
+export async function findOpenOrderFor(shopId: string, playerUuid: string) {
+  await ensureOrdersTable();
+  if (!playerUuid) return null;
+  const row = await getD1().then((db) => db.prepare(
+    `SELECT id, status, created_at FROM orders
+      WHERE shop_id = ? AND player_uuid = ? AND status IN (${OPEN_STATUSES})
+      ORDER BY created_at ASC LIMIT 1`,
+  ).bind(shopId, playerUuid).first<{ id: string; status: string; created_at: string }>())
+    .catch(() => null);
+  return row ? { id: row.id, status: row.status, createdAt: row.created_at } : null;
 }

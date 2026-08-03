@@ -31,7 +31,25 @@ async function getD1() {
   return env.DB;
 }
 
+/**
+ * Schema setup, once per isolate rather than once per query.
+ *
+ * Every helper in this file called this first, so a single page view replayed
+ * the CREATEs and ALTERs dozens of times. Each statement is cheap on its own,
+ * but each one is also a round trip to D1, and that is what the site felt like.
+ * A failure clears the latch so the next request retries rather than running
+ * against a half-built schema.
+ */
+let migrateReviewsTableReady: Promise<void> | null = null;
+
 export async function ensureReviewsTable() {
+  if (!migrateReviewsTableReady) {
+    migrateReviewsTableReady = migrateReviewsTable().catch((error) => { migrateReviewsTableReady = null; throw error; });
+  }
+  return migrateReviewsTableReady;
+}
+
+async function migrateReviewsTable() {
   const db = await getD1();
   await db.batch([
     db.prepare(`CREATE TABLE IF NOT EXISTS reviews (
@@ -282,4 +300,46 @@ export async function countHiddenReviews(shopId: string) {
     "SELECT COUNT(*) AS count FROM reviews WHERE shop_id = ? AND status != 'visible'",
   ).bind(shopId).first<{ count: number }>()).catch(() => null);
   return row?.count ?? 0;
+}
+
+/**
+ * Ratings for every shop at once.
+ *
+ * The market list needed a rating per shop and was asking for them one shop at
+ * a time — two round trips each. Sorting by rating or review count needs the
+ * same numbers, so both now come from these two grouped queries.
+ */
+export async function listShopRatings(): Promise<Map<string, ShopRating>> {
+  await ensureReviewsTable();
+  const db = await getD1();
+
+  type RatingRow = { shop_id: string; average: number | null; count: number };
+  type CountRow = { shop_id: string; count: number };
+
+  const ratings = await db.prepare(
+    `SELECT shop_id, AVG(rating) AS average, COUNT(*) AS count
+       FROM reviews WHERE status = 'visible' GROUP BY shop_id`,
+  ).all<RatingRow>().catch(() => ({ results: [] as RatingRow[] }));
+
+  // Orders may not exist yet on a database that has never taken one.
+  const completed = await db.prepare(
+    "SELECT shop_id, COUNT(*) AS count FROM orders WHERE status = 'completed' GROUP BY shop_id",
+  ).all<CountRow>().catch(() => ({ results: [] as CountRow[] }));
+
+  const done = new Map<string, number>(
+    completed.results.map((row) => [row.shop_id, row.count] as [string, number]),
+  );
+  const out = new Map<string, ShopRating>();
+  for (const row of ratings.results) {
+    out.set(row.shop_id, {
+      average: row.average ? Math.round(row.average * 10) / 10 : 0,
+      count: row.count,
+      completedOrders: done.get(row.shop_id) ?? 0,
+    });
+  }
+  // A shop with finished work but no reviews still belongs in the map.
+  for (const [shopId, count] of done) {
+    if (!out.has(shopId)) out.set(shopId, { average: 0, count: 0, completedOrders: count });
+  }
+  return out;
 }

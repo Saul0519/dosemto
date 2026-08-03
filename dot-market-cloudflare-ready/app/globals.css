@@ -1423,3 +1423,50 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 .portfolio-admin-grid figcaption .is-cover { color: var(--ink); font-weight: 700; }
 .portfolio-admin-grid figcaption button.make-cover { color: var(--ink-3); }
 .portfolio-admin-grid figcaption button.make-cover:hover { color: var(--ink); }
+
+/* ── 샵 목록 정렬과 페이지 ─────────────────────────────────────────────── */
+
+.directory-heading { flex-wrap: wrap; gap: 12px 18px; }
+.shop-sort { display: flex; flex-wrap: wrap; gap: 4px; }
+.shop-sort a, .shop-sort button {
+  padding: 5px 11px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--ink-3);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.shop-sort button { background: transparent; cursor: pointer; font-family: inherit; }
+.shop-sort a:hover, .shop-sort button:hover { border-color: var(--line-2); color: var(--ink); }
+.shop-sort a.active, .shop-sort button.active { border-color: var(--ink); background: var(--ink); color: var(--ink-invert); }
+.shop-sort a:focus-visible, .shop-sort button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.shop-paging { margin-top: 22px; display: flex; align-items: center; justify-content: center; gap: 18px; }
+.shop-paging a { padding: 7px 14px; border: 1px solid var(--line-2); color: var(--ink); font-size: 12px; text-decoration: none; }
+.shop-paging a:hover { border-color: var(--ink); }
+/* Kept in the tab order but inert, so the row does not jump as pages change. */
+.shop-paging a.disabled { border-color: var(--line); color: var(--ink-3); pointer-events: none; }
+.shop-paging span { color: var(--ink-3); font-family: var(--font-mono); font-size: 12px; }
+
+@media (max-width: 640px) {
+  .shop-sort { width: 100%; }
+  .shop-sort a, .shop-sort button { padding: 5px 9px; font-size: 11px; }
+}
+
+/* Told before you start, not after you have done the work. */
+.open-order-note {
+  display: grid;
+  gap: 6px;
+  padding: 13px 15px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: var(--paper-sunk);
+}
+.open-order-note b { font-size: 13px; }
+.open-order-note code { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); }
+.open-order-note span { color: var(--ink-2); font-size: 12px; line-height: 1.6; }
+.open-order-note a { color: var(--ink); font-size: 12px; font-weight: 700; text-decoration: none; border-bottom: 1px solid var(--line-2); justify-self: start; }
+.open-order-note a:hover { border-bottom-color: var(--ink); }

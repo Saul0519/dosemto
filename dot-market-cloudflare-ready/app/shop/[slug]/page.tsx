@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import PixelOrderStudio from "../../pixel-order-studio";
 import { discordConfig } from "../../../db/discord-session";
 import { getUser } from "../../session";
-import { countActiveOrders } from "../../../db/orders";
+import { countActiveOrders, findOpenOrderFor } from "../../../db/orders";
 import { getPublicShop } from "../../../db/shops";
 import { slotState } from "../../../db/slots";
 import { turnstileSiteKey } from "../../../db/turnstile";
@@ -18,6 +18,9 @@ export default async function ShopPage({ params }: { params: Promise<{ slug: str
   const user = await getUser().catch(() => null);
   const { configured } = await discordConfig();
   const slots = slotState(shop, await countActiveOrders(shop.id).catch(() => 0));
+  // Telling someone up front beats letting them convert an image, fill the form
+  // and only then be refused.
+  const openOrder = user ? await findOpenOrderFor(shop.id, user.id).catch(() => null) : null;
 
   return (
     <PixelOrderStudio
@@ -26,6 +29,7 @@ export default async function ShopPage({ params }: { params: Promise<{ slug: str
       userName={user?.name ?? null}
       loginConfigured={configured}
       slots={{ enabled: slots.enabled, used: slots.used, max: slots.max, full: slots.full }}
+      openOrderId={openOrder?.id ?? null}
     />
   );
 }

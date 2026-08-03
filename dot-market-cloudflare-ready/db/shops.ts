@@ -67,12 +67,13 @@ export type PublicShop = {
   slotManual: number;
   /** Image the manager picked to represent the shop; null means "the first one". */
   coverImageId: string | null;
+  /** When the shop opened. Public because the market list can sort by it. */
+  createdAt: string;
 };
 
 export type ManagedShop = PublicShop & {
   managerEmail: string;
   active: boolean;
-  createdAt: string;
   updatedAt: string;
 };
 
@@ -99,7 +100,25 @@ export async function isSuperAdmin(email: string) {
   return Boolean(owner) && owner === email.trim().toLowerCase();
 }
 
+/**
+ * Schema setup, once per isolate rather than once per query.
+ *
+ * Every helper in this file called this first, so a single page view replayed
+ * the CREATEs and ALTERs dozens of times. Each statement is cheap on its own,
+ * but each one is also a round trip to D1, and that is what the site felt like.
+ * A failure clears the latch so the next request retries rather than running
+ * against a half-built schema.
+ */
+let migrateShopsTableReady: Promise<void> | null = null;
+
 async function ensureShopsTable() {
+  if (!migrateShopsTableReady) {
+    migrateShopsTableReady = migrateShopsTable().catch((error) => { migrateShopsTableReady = null; throw error; });
+  }
+  return migrateShopsTableReady;
+}
+
+async function migrateShopsTable() {
   const db = await getD1();
   await db.batch([
     db.prepare(`CREATE TABLE IF NOT EXISTS shops (
@@ -235,6 +254,36 @@ function toImage(row: ShopImageRow): ShopImage {
  * A cover_image_id left pointing at a deleted image simply matches nothing and
  * the list falls back to position order.
  */
+/**
+ * Images for many shops in one query, keyed by shop.
+ *
+ * The list screens used to call listImages once per shop, which is a round trip
+ * each. Cover ordering is applied per shop here rather than in SQL, since the
+ * rows for every shop come back together.
+ */
+async function listImagesByShop(
+  shops: { id: string; cover_image_id: string | null }[],
+): Promise<Map<string, ShopImage[]>> {
+  const byShop = new Map<string, ShopImage[]>(shops.map((shop) => [shop.id, []]));
+  if (shops.length === 0) return byShop;
+
+  const placeholders = shops.map(() => "?").join(", ");
+  const rows = await getD1().then((db) => db.prepare(`SELECT id, shop_id,
+    object_key, filename, content_type, position, created_at
+    FROM shop_images WHERE shop_id IN (${placeholders})
+    ORDER BY position ASC, created_at ASC`
+  ).bind(...shops.map((shop) => shop.id)).all<ShopImageRow>()).catch(() => ({ results: [] }));
+
+  for (const row of rows.results) byShop.get(row.shop_id)?.push(toImage(row));
+  for (const shop of shops) {
+    if (!shop.cover_image_id) continue;
+    const images = byShop.get(shop.id);
+    const at = images?.findIndex((image) => image.id === shop.cover_image_id) ?? -1;
+    if (images && at > 0) images.unshift(images.splice(at, 1)[0]);
+  }
+  return byShop;
+}
+
 async function listImages(shopId: string): Promise<ShopImage[]> {
   const rows = await getD1().then((db) => db.prepare(`SELECT id, shop_id,
     object_key, filename, content_type, position, created_at
@@ -283,7 +332,8 @@ export async function listPublicShops(): Promise<PublicShop[]> {
   const rows = await getD1().then((db) => db.prepare(
     `SELECT ${selectColumns} FROM shops WHERE active = 1 ORDER BY created_at ASC`,
   ).all<ShopRow>());
-  return Promise.all(rows.results.map(async (row) => toManagedShop(row, await listImages(row.id))));
+  const images = await listImagesByShop(rows.results);
+  return rows.results.map((row) => toManagedShop(row, images.get(row.id) ?? []));
 }
 
 export async function getPublicShop(slug: string): Promise<PublicShop | null> {
@@ -299,7 +349,8 @@ export async function listAllShops(): Promise<ManagedShop[]> {
   const rows = await getD1().then((db) => db.prepare(
     `SELECT ${selectColumns} FROM shops ORDER BY created_at ASC`,
   ).all<ShopRow>());
-  return Promise.all(rows.results.map(async (row) => toManagedShop(row, await listImages(row.id))));
+  const images = await listImagesByShop(rows.results);
+  return rows.results.map((row) => toManagedShop(row, images.get(row.id) ?? []));
 }
 
 export async function listManagedShops(email: string): Promise<ManagedShop[]> {
@@ -308,7 +359,8 @@ export async function listManagedShops(email: string): Promise<ManagedShop[]> {
   const rows = await getD1().then((db) => db.prepare(
     `SELECT ${selectColumns} FROM shops WHERE lower(manager_email) = lower(?) ORDER BY created_at ASC`,
   ).bind(email.trim()).all<ShopRow>());
-  return Promise.all(rows.results.map(async (row) => toManagedShop(row, await listImages(row.id))));
+  const images = await listImagesByShop(rows.results);
+  return rows.results.map((row) => toManagedShop(row, images.get(row.id) ?? []));
 }
 
 export async function getShopForManager(id: string, email: string) {
