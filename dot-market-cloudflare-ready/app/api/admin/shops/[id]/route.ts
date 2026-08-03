@@ -41,6 +41,10 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     channelId = candidate;
   }
 
+  // A shop is free to set no limit at all; 0 means "never blocked".
+  const slotMax = Math.max(0, Math.min(999, Math.trunc(Number(body.slotMax) || 0)));
+  const slotManual = Math.max(0, Math.min(999, Math.trunc(Number(body.slotManual) || 0)));
+
   try {
     await updateShopSettings(id, {
       name,
@@ -49,10 +53,49 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       aboutText,
       pricing: body.pricing,
       channelId,
+      slotMax,
+      slotManual,
     });
   } catch {
     return Response.json({ error: "샵 설정을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요." }, { status: 503 });
   }
 
   return Response.json({ ok: true, shop: await getShopForManager(id, user.email) });
+}
+
+/**
+ * Adjusts the queue without resubmitting the whole settings form, so a manager
+ * can mark a slot taken while looking at the order list.
+ */
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  const user = await getChatGPTUser();
+  if (!user) return Response.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 });
+  const { id } = await context.params;
+  const shop = await getShopForManager(id, user.email);
+  if (!shop) return Response.json({ error: "이 샵을 관리할 권한이 없습니다." }, { status: 403 });
+
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  if (!body) return Response.json({ error: "요청을 읽지 못했습니다." }, { status: 400 });
+
+  const clamp = (value: unknown, fallback: number) =>
+    value === undefined ? fallback : Math.max(0, Math.min(999, Math.trunc(Number(value) || 0)));
+
+  const slotMax = clamp(body.slotMax, shop.slotMax);
+  const slotManual = clamp(body.slotManual, shop.slotManual);
+
+  try {
+    await updateShopSettings(id, {
+      name: shop.name,
+      description: shop.description,
+      aboutTitle: shop.aboutTitle,
+      aboutText: shop.aboutText,
+      pricing: shop.pricing,
+      slotMax,
+      slotManual,
+    });
+  } catch {
+    return Response.json({ error: "슬롯을 저장하지 못했습니다." }, { status: 503 });
+  }
+
+  return Response.json({ ok: true, slotMax, slotManual });
 }

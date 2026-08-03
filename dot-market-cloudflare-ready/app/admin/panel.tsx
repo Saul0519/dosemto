@@ -18,6 +18,8 @@ type ManagedShop = {
   webhookConfigured: boolean;
   channelId: string | null;
   guildId: string | null;
+  slotMax: number;
+  slotManual: number;
   active: boolean;
 };
 
@@ -164,6 +166,8 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
           aboutTitle: draft.aboutTitle,
           aboutText: draft.aboutText,
           pricing: draft.pricing,
+          slotMax: draft.slotMax,
+          slotManual: draft.slotManual,
           channelId,
           removeChannel,
         }),
@@ -175,6 +179,25 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "저장하지 못했습니다.");
     } finally { setBusy(false); }
+  };
+
+  /**
+   * Fills or frees a slot straight from the order list. Saves on click rather
+   * than waiting for the settings form, since this is a one-number change a
+   * manager makes while working.
+   */
+  const bumpManual = async (delta: number) => {
+    if (!draft) return;
+    const next = Math.max(0, Math.min(999, draft.slotManual + delta));
+    if (next === draft.slotManual) return;
+    setDraft({ ...draft, slotManual: next });
+    setShops((current) => current.map((shop) => shop.id === draft.id ? { ...shop, slotManual: next } : shop));
+    const response = await fetch(`/api/admin/shops/${draft.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ slotManual: next }),
+    }).catch(() => null);
+    if (!response?.ok) setMessage("슬롯을 저장하지 못했습니다. 새로고침 후 다시 시도해 주세요.");
   };
 
   const uploadImages = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -284,6 +307,44 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
                 <div><span>완료</span><b>{visibleOrders.filter((order) => order.status === "completed").length}</b></div>
               </div>
 
+              {(() => {
+                // Same statuses countActiveOrders uses, so the meter matches the gate.
+                const auto = visibleOrders.filter((order) =>
+                  order.status === "new" || order.status === "working" || order.status === "notification_failed").length;
+                const used = auto + draft.slotManual;
+                const full = draft.slotMax > 0 && used >= draft.slotMax;
+                return (
+                  <div className={`slot-meter${full ? " full" : ""}${draft.slotMax === 0 ? " off" : ""}`}>
+                    <div className="slot-meter-head">
+                      <div>
+                        <b>접수 슬롯</b>
+                        <span>{draft.slotMax === 0
+                          ? "제한을 두지 않았습니다. 샵 설정에서 최대 슬롯을 정하면 가득 찼을 때 주문이 자동으로 막힙니다."
+                          : full
+                            ? "가득 찼습니다. 지금은 새 주문을 받지 않습니다."
+                            : `${draft.slotMax - used}칸 남았습니다.`}</span>
+                      </div>
+                      {draft.slotMax > 0 && <strong>{used}<i>/{draft.slotMax}</i></strong>}
+                    </div>
+                    {draft.slotMax > 0 && (
+                      <div className="slot-bar" role="img" aria-label={`슬롯 ${used}/${draft.slotMax}`}>
+                        {Array.from({ length: draft.slotMax }, (_, index) => (
+                          <span key={index} className={index < auto ? "auto" : index < used ? "manual" : ""}/>
+                        ))}
+                      </div>
+                    )}
+                    <div className="slot-manual">
+                      <span>직접 채운 칸 <b>{draft.slotManual}</b></span>
+                      <div>
+                        <button type="button" onClick={() => bumpManual(-1)} disabled={draft.slotManual === 0} aria-label="직접 채운 칸 줄이기">−</button>
+                        <button type="button" onClick={() => bumpManual(1)} aria-label="직접 채운 칸 늘리기">+</button>
+                      </div>
+                    </div>
+                    <p>진행 중인 주문 {auto}건은 자동으로 세어집니다. 사이트 밖에서 받은 작업은 직접 채워두세요. 마감하거나 취소하면 자동으로 비워집니다.</p>
+                  </div>
+                );
+              })()}
+
               {visibleOrders.length === 0 ? (
                 <div className="order-empty"><b>아직 접수된 주문이 없습니다.</b><span>고객이 주문을 완료하면 도안, 연락처, 금액과 마감 정보가 여기에 표시됩니다.</span></div>
               ) : <div className="order-history-list">{visibleOrders.map((order) => (
@@ -377,6 +438,14 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
                   <label>알림 채널 ID<input inputMode="numeric" autoComplete="off" value={channelId} onChange={(e) => { setChannelId(e.target.value); setRemoveChannel(false); }} placeholder={draft.channelId ?? "봇을 초대하면 목록에서 고를 수 있습니다"}/><small>{needsInvite ? "봇이 아직 서버에 없습니다. 위의 초대 버튼을 눌러주세요. 직접 채널 ID를 붙여넣어도 됩니다." : "채널 목록을 불러오는 중입니다."}</small></label>
                 )}
                 {draft.webhookConfigured && <label className="check-row"><input type="checkbox" checked={removeChannel} onChange={(e) => { setRemoveChannel(e.target.checked); if (e.target.checked) setChannelId(""); }}/><span>알림 채널 연결 해제 (주문 접수 중단)</span></label>}
+              </section>
+
+              <section className="settings-card">
+                <div className="settings-section-head"><span>05</span><div><h3>접수 슬롯</h3><p>한 번에 몇 건까지 받을지 정합니다. 가득 차면 주문 화면에서 접수 버튼이 잠깁니다.</p></div></div>
+                <div className="field-grid">
+                  <label>최대 슬롯<input type="number" min={0} max={999} value={draft.slotMax} onChange={(e) => setDraft({ ...draft, slotMax: Math.max(0, Math.min(999, Math.trunc(Number(e.target.value) || 0))) })}/><small>0으로 두면 제한 없이 계속 받습니다.</small></label>
+                  <label>직접 채운 칸<input type="number" min={0} max={999} value={draft.slotManual} onChange={(e) => setDraft({ ...draft, slotManual: Math.max(0, Math.min(999, Math.trunc(Number(e.target.value) || 0))) })}/><small>사이트 밖에서 받은 작업 수. 주문 기록 화면에서도 바로 조절할 수 있습니다.</small></label>
+                </div>
               </section>
 
               <div className="save-bar"><span>{message}</span><button disabled={busy || imageBusy}>{busy ? "저장 중…" : "변경사항 저장"}</button></div>

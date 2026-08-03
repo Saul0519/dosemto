@@ -1,9 +1,10 @@
 import { validateImageFile } from "../../../db/image-validation";
-import { createOrder, setOrderMessageId, setOrderWebhookResult } from "../../../db/orders";
+import { createOrder, setOrderMessageId, setOrderWebhookResult, countActiveOrders } from "../../../db/orders";
 import { randomToken } from "../../../db/order-actions";
 import { currentUser } from "../../../db/discord-session";
 import { postOrderMessage } from "../../../db/discord-bot";
 import { getOrderShop } from "../../../db/shops";
+import { slotState } from "../../../db/slots";
 import { verifyTurnstile } from "../../../db/turnstile";
 
 export const dynamic = "force-dynamic";
@@ -64,6 +65,15 @@ export async function POST(request: Request) {
   }
   if (!shop.channelId) {
     return Response.json({ error: "이 샵의 주문 알림 채널이 아직 설정되지 않았습니다." }, { status: 503 });
+  }
+
+  // Checked here as well as in the browser, because the queue can fill between
+  // loading the page and pressing the button.
+  const slots = slotState(shop, await countActiveOrders(shop.id).catch(() => 0));
+  if (slots.full) {
+    return Response.json({
+      error: `지금은 ${shop.name}의 접수 슬롯이 모두 찼습니다 (${slots.used}/${slots.max}). 진행 중인 작업이 끝나면 다시 열립니다.`,
+    }, { status: 409 });
   }
 
   const preview = form.get("preview");

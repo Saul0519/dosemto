@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { countActiveOrdersByShop } from "../db/orders";
 import { listPublicShops } from "../db/shops";
+import { slotState } from "../db/slots";
 import { getShopRating } from "../db/reviews";
 import AccountChip from "./account-chip";
 import { getUser } from "./session";
@@ -29,6 +31,8 @@ export default async function Home() {
   const ratings = new Map(await Promise.all(shops.map(async (shop) =>
     [shop.id, await getShopRating(shop.id).catch(() => null)] as const,
   )));
+  // One grouped query rather than one per shop.
+  const activeOrders = await countActiveOrdersByShop().catch(() => new Map<string, number>());
 
   return (
     <div className="market-page">
@@ -145,9 +149,13 @@ export default async function Home() {
                   <div className="shop-card-copy">
                     <div>
                       <small>/{shop.slug}</small>
-                      <span className={shop.webhookConfigured ? "ready" : "preparing"}>
-                        {shop.webhookConfigured ? "주문 가능" : "준비 중"}
-                      </span>
+                      {(() => {
+                        const slots = slotState(shop, activeOrders.get(shop.id) ?? 0);
+                        if (!shop.webhookConfigured) return <span className="preparing">준비 중</span>;
+                        if (slots.full) return <span className="closed">접수 마감</span>;
+                        if (slots.enabled) return <span className="ready">슬롯 {slots.used}/{slots.max}</span>;
+                        return <span className="ready">주문 가능</span>;
+                      })()}
                     </div>
                     <h3>{shop.name}</h3>
                     {(ratings.get(shop.id)?.count ?? 0) > 0 && (

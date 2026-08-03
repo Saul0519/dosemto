@@ -1247,3 +1247,76 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 .order-history-card > footer button.purge-order:hover { border-color: var(--danger-ink); background: var(--danger-soft); }
 
 .hidden-note { margin: 10px 0 0; color: var(--ink-3); font-size: 12px; }
+
+/* ── 접수 슬롯 ───────────────────────────────────────────────────────
+   A shop caps how much work it holds at once. Live orders fill the meter on
+   their own; the manager can also fill slots by hand for work taken elsewhere.
+   Auto and manual are drawn differently so a manager can see which is which. */
+
+.slot-meter {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+  padding: 18px 20px;
+  margin-bottom: 26px;
+}
+
+.slot-meter.full { border-color: var(--coral); background: #fff7f5; }
+.slot-meter.off { background: var(--paper-sunk); }
+
+.slot-meter-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.slot-meter-head b { display: block; font-size: 14px; letter-spacing: -0.01em; }
+.slot-meter-head span { display: block; margin-top: 4px; font-size: 12.5px; color: var(--ink-2); line-height: 1.55; }
+.slot-meter.full .slot-meter-head span { color: var(--coral-ink); }
+.slot-meter-head strong { font-family: var(--font-mono); font-size: 22px; line-height: 1; white-space: nowrap; }
+.slot-meter-head strong i { font-style: normal; font-size: 14px; color: var(--ink-3); }
+
+.slot-bar { display: flex; flex-wrap: wrap; gap: 4px; margin: 14px 0 4px; }
+.slot-bar span {
+  flex: 1 1 14px;
+  min-width: 10px;
+  max-width: 34px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--paper-deep);
+  box-shadow: inset 0 0 0 1px var(--line-2);
+}
+.slot-bar span.auto { background: var(--ink); box-shadow: none; }
+/* Hand-filled slots read as taken but distinct from real orders. */
+.slot-bar span.manual {
+  background: repeating-linear-gradient(45deg, var(--ink-3) 0 3px, var(--paper-deep) 3px 6px);
+  box-shadow: none;
+}
+
+.slot-manual {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line);
+}
+.slot-manual > span { font-size: 12.5px; color: var(--ink-2); }
+.slot-manual > span b { font-family: var(--font-mono); color: var(--ink); margin-left: 4px; }
+.slot-manual > div { display: flex; gap: 6px; }
+.slot-manual button {
+  width: 34px; height: 34px; border-radius: 9px;
+  border: 1px solid var(--line-2); background: var(--paper);
+  font-size: 17px; line-height: 1; color: var(--ink); cursor: pointer;
+}
+.slot-manual button:hover:not(:disabled) { border-color: var(--ink); }
+.slot-manual button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.slot-meter > p { margin: 12px 0 0; font-size: 12px; color: var(--ink-3); line-height: 1.6; }
+
+/* Order screen */
+.slot-line {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding: 12px 14px; margin-bottom: 14px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--paper-sunk);
+}
+.slot-line.full { border-color: var(--coral); background: #fff7f5; }
+.slot-line b { font-size: 12.5px; letter-spacing: 0.02em; color: var(--ink-2); }
+.slot-line strong { font-family: var(--font-mono); font-size: 17px; }
+.slot-line strong i { font-style: normal; font-size: 12.5px; color: var(--ink-3); }
+.slot-line span { flex: 1 1 100%; font-size: 12px; color: var(--ink-2); line-height: 1.55; }
+.slot-line.full span { color: var(--coral-ink); }
+
+/* Card badge — sits where 주문 가능 / 준비 중 do, so it matches them. */
+.shop-card-copy .closed { color: var(--coral-ink); }

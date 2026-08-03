@@ -12,6 +12,8 @@ type ShopRow = {
   webhook_iv: string | null;
   channel_id: string | null;
   guild_id: string | null;
+  slot_max: number | null;
+  slot_manual: number | null;
   tile_price: number;
   day_1_multiplier: number;
   day_2_multiplier: number;
@@ -58,6 +60,10 @@ export type PublicShop = {
   channelId: string | null;
   /** Server the bot was invited to for this shop. */
   guildId: string | null;
+  /** How many jobs the shop is willing to hold at once. 0 means no limit. */
+  slotMax: number;
+  /** Slots the manager filled by hand, for work taken outside the site. */
+  slotManual: number;
 };
 
 export type ManagedShop = PublicShop & {
@@ -132,6 +138,9 @@ async function ensureShopsTable() {
   // Added when order notifications moved from webhooks to the bot.
   await db.prepare("ALTER TABLE shops ADD COLUMN channel_id TEXT").run().catch(() => undefined);
   await db.prepare("ALTER TABLE shops ADD COLUMN guild_id TEXT").run().catch(() => undefined);
+  // Capacity the shop advertises, and the part of it filled by hand.
+  await db.prepare("ALTER TABLE shops ADD COLUMN slot_max INTEGER NOT NULL DEFAULT 0").run().catch(() => undefined);
+  await db.prepare("ALTER TABLE shops ADD COLUMN slot_manual INTEGER NOT NULL DEFAULT 0").run().catch(() => undefined);
 
   const owner = await superAdminEmail();
   if (owner) {
@@ -148,7 +157,7 @@ async function ensureShopsTable() {
 }
 
 const selectColumns = `id, slug, name, description, about_title, about_text, manager_email,
-  webhook_ciphertext, webhook_iv, channel_id, guild_id, tile_price,
+  webhook_ciphertext, webhook_iv, channel_id, guild_id, slot_max, slot_manual, tile_price,
   day_1_multiplier, day_2_multiplier, day_3_multiplier, day_4_multiplier,
   day_5_multiplier, day_6_multiplier, day_7_multiplier,
   active, created_at, updated_at`;
@@ -199,6 +208,8 @@ function toManagedShop(row: ShopRow, images: ShopImage[] = []): ManagedShop {
     pricing: rowPricing(row),
     channelId: row.channel_id,
     guildId: row.guild_id,
+    slotMax: row.slot_max ?? 0,
+    slotManual: row.slot_manual ?? 0,
     // Orders go out through the bot now, so a channel is what makes a shop
     // reachable. The name is kept so existing callers keep working.
     webhookConfigured: Boolean(row.channel_id),
@@ -317,27 +328,38 @@ export async function updateShopSettings(id: string, input: {
   aboutText: string;
   pricing: PricingConfig;
   channelId?: string | null;
+  /** Required, not optional: omitting these would silently reset the queue. */
+  slotMax: number;
+  slotManual: number;
 }) {
   await ensureShopsTable();
   const multipliers = [1, 2, 3, 4, 5, 6, 7].map((day) =>
     Math.round(input.pricing.deadlineMultipliers[String(day)] * 1000),
   );
   const db = await getD1();
+
+  // Slots are always written; channel only when the caller supplied one, so a
+  // blank field in the form means "keep what is there".
+  const slotMax = Math.max(0, Math.min(999, Math.trunc(input.slotMax) || 0));
+  const slotManual = Math.max(0, Math.min(999, Math.trunc(input.slotManual) || 0));
+
   if (input.channelId !== undefined) {
     await db.prepare(`UPDATE shops SET name = ?, description = ?, about_title = ?, about_text = ?, tile_price = ?,
       day_1_multiplier = ?, day_2_multiplier = ?, day_3_multiplier = ?,
       day_4_multiplier = ?, day_5_multiplier = ?, day_6_multiplier = ?,
-      day_7_multiplier = ?, channel_id = ?,
+      day_7_multiplier = ?, channel_id = ?, slot_max = ?, slot_manual = ?,
       updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(
       input.name, input.description, input.aboutTitle, input.aboutText, input.pricing.tilePrice, ...multipliers,
-      input.channelId, id,
+      input.channelId, slotMax, slotManual, id,
     ).run();
   } else {
     await db.prepare(`UPDATE shops SET name = ?, description = ?, about_title = ?, about_text = ?, tile_price = ?,
       day_1_multiplier = ?, day_2_multiplier = ?, day_3_multiplier = ?,
       day_4_multiplier = ?, day_5_multiplier = ?, day_6_multiplier = ?,
-      day_7_multiplier = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(
-      input.name, input.description, input.aboutTitle, input.aboutText, input.pricing.tilePrice, ...multipliers, id,
+      day_7_multiplier = ?, slot_max = ?, slot_manual = ?,
+      updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(
+      input.name, input.description, input.aboutTitle, input.aboutText, input.pricing.tilePrice, ...multipliers,
+      slotMax, slotManual, id,
     ).run();
   }
 }

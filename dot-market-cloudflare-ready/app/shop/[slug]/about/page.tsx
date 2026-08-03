@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { countActiveOrders } from "../../../../db/orders";
 import { getPublicShop } from "../../../../db/shops";
+import { slotState } from "../../../../db/slots";
 import { countHiddenReviews, getShopRating, listShopReviews } from "../../../../db/reviews";
 import { SHOP_PAGE, SITE } from "../../../site-content";
 import AccountChip from "../../../account-chip";
@@ -28,11 +30,13 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
   if (!shop) notFound();
 
   const user = await getUser().catch(() => null);
-  const [rating, reviews, hiddenCount] = await Promise.all([
+  const [rating, reviews, hiddenCount, activeOrders] = await Promise.all([
     getShopRating(shop.id).catch(() => ({ average: 0, count: 0, completedOrders: 0 })),
     listShopReviews(shop.id).catch(() => []),
     countHiddenReviews(shop.id).catch(() => 0),
+    countActiveOrders(shop.id).catch(() => 0),
   ]);
+  const slots = slotState(shop, activeOrders);
 
   // A blank line starts a new paragraph; a single Enter stays a line break
   // inside the current one. Managers type in a plain textarea and expect both.
@@ -84,10 +88,18 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
               <div><dt>마감</dt><dd>1일 ~ 7일 · 7일이 기본가</dd></div>
               <div><dt>받는 것</dt><dd>32px 격자선이 들어간 도안 PNG</dd></div>
               <div><dt>연락</dt><dd>주문 시 남긴 디스코드 ID</dd></div>
+              {slots.enabled && (
+                <div><dt>접수 슬롯</dt><dd>{slots.full ? `가득 참 (${slots.used}/${slots.max})` : `${slots.used}/${slots.max} · ${slots.free}칸 남음`}</dd></div>
+              )}
             </dl>
             <Link className="service-order-link" href={`/shop/${shop.slug}`}>
               {SHOP_PAGE.cta} <span aria-hidden="true">→</span>
             </Link>
+            {shop.webhookConfigured && slots.full && (
+              <small className="service-preparing-note">
+                지금은 접수 슬롯이 모두 찼습니다. 진행 중인 작업이 끝나면 다시 열립니다. 도안 변환과 다운로드는 그대로 쓰실 수 있습니다.
+              </small>
+            )}
             {!shop.webhookConfigured && (
               <small className="service-preparing-note">
                 이 샵은 아직 주문 알림 채널을 연결하지 않아 지금은 주문을 받을 수 없습니다. 도안 변환과 다운로드는 됩니다.
@@ -124,8 +136,8 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
               <h2 id="reviews-title">주문한 사람들의 후기</h2>
               <p>
                 {rating.count > 0
-                  ? `이 샵에서 마감된 주문 ${rating.completedOrders}건 중 ${rating.count}건에 후기가 달렸습니다. 후기는 주문한 사람에게만 발급되는 일회용 링크로 작성됩니다.`
-                  : "아직 후기가 없습니다. 작업이 마감되면 주문한 분께 후기 링크가 전달됩니다."}
+                  ? `이 샵에서 마감된 주문 ${rating.completedOrders}건 중 ${rating.count}건에 후기가 달렸습니다. 후기는 주문한 본인만 쓰고 고칠 수 있습니다.`
+                  : "아직 후기가 없습니다. 작업이 마감되면 주문한 분이 후기를 남길 수 있습니다."}
               </p>
               {hiddenCount > 0 && (
                 <p className="hidden-note">

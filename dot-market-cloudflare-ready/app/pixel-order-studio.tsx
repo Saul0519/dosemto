@@ -117,12 +117,14 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-export default function PixelOrderStudio({ shop, captchaSiteKey, userName, loginConfigured }: {
+export default function PixelOrderStudio({ shop, captchaSiteKey, userName, loginConfigured, slots }: {
   shop: Shop;
   captchaSiteKey: string;
   /** Signed-in Discord display name, or null when signed out. */
   userName: string | null;
   loginConfigured: boolean;
+  /** How full the shop's queue was when the page was rendered. */
+  slots: { enabled: boolean; used: number; max: number; full: boolean };
 }) {
   const [palette, setPalette] = useState<RGB[]>([]);
   const pricing = shop.pricing ?? FALLBACK_PRICING;
@@ -483,6 +485,16 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, userName, login
             <div><span>마감 조정 ({deadline}일)</span><b className={rushPrice > 0 ? "rush" : ""}>{rushPrice > 0 ? `+${formatWon(rushPrice)}` : "추가 없음"}</b></div>
           </div>
 
+          {slots.enabled && (
+            <div className={`slot-line${slots.full ? " full" : ""}`}>
+              <b>접수 슬롯</b>
+              <strong>{slots.used}<i>/{slots.max}</i></strong>
+              <span>{slots.full
+                ? "진행 중인 작업이 끝나면 다시 열립니다. 도안 변환과 다운로드는 그대로 쓰실 수 있습니다."
+                : `${slots.max - slots.used}칸 남았습니다.`}</span>
+            </div>
+          )}
+
           <div className="total-price"><span>예상 금액</span><strong>{formatWon(totalPrice)}</strong></div>
 
           <div className="contact-fields">
@@ -496,10 +508,10 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, userName, login
               <small>이 디스코드 계정으로 접수되고, 진행 상황도 여기로 안내됩니다.</small>
             </div>
 
-            <TurnstileCaptcha siteKey={captchaSiteKey} resetKey={captchaResetKey} onToken={setCaptchaToken}/>
+            {!slots.full && <TurnstileCaptcha siteKey={captchaSiteKey} resetKey={captchaResetKey} onToken={setCaptchaToken}/>}
 
-            <button className="order-button" type="button" onClick={submitOrder} disabled={orderState === "sending" || !captchaToken}>
-              {orderState === "sending" ? "보내는 중…" : !captchaSiteKey ? "봇 방지 설정이 필요합니다" : !captchaToken ? "봇 방지 확인을 먼저 해주세요" : orderState === "sent" ? "주문 전송 완료" : <><Icon name="discord" size={21}/> 주문 넣기 <span>→</span></>}
+            <button className="order-button" type="button" onClick={submitOrder} disabled={slots.full || orderState === "sending" || !captchaToken}>
+              {slots.full ? "지금은 접수 슬롯이 가득 찼습니다" : orderState === "sending" ? "보내는 중…" : !captchaSiteKey ? "봇 방지 설정이 필요합니다" : !captchaToken ? "봇 방지 확인을 먼저 해주세요" : orderState === "sent" ? "주문 전송 완료" : <><Icon name="discord" size={21}/> 주문 넣기 <span>→</span></>}
             </button>
             <p className={`order-status ${orderState}`}>{orderMessage || <><Icon name="lock" size={14}/> 변환 도안과 주문 내용이 샵 디스코드로 함께 전송됩니다.</>}</p>
           </> : <div className="order-login">

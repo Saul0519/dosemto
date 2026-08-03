@@ -310,3 +310,31 @@ export async function deleteOrderCascade(orderId: string) {
     objectKeys: [row.preview_object_key, row.original_object_key].filter((key): key is string => Boolean(key)),
   };
 }
+
+/** Statuses that mean the shop still owes the customer a drawing. */
+const OPEN_STATUSES = "'new', 'working', 'notification_failed'";
+
+/**
+ * Orders a shop is still holding. Completed and cancelled ones free their slot,
+ * so capacity reflects work in hand rather than work ever taken.
+ *
+ * notification_failed counts too: the order exists and shows up in the shop's
+ * order list, only the Discord ping did not land. Leaving it out would let a
+ * shop keep taking work it has already agreed to.
+ */
+export async function countActiveOrders(shopId: string) {
+  await ensureOrdersTable();
+  const row = await getD1().then((db) => db.prepare(
+    `SELECT COUNT(*) AS count FROM orders WHERE shop_id = ? AND status IN (${OPEN_STATUSES})`,
+  ).bind(shopId).first<{ count: number }>()).catch(() => null);
+  return row?.count ?? 0;
+}
+
+/** Same figure for every shop at once, for listings. */
+export async function countActiveOrdersByShop(): Promise<Map<string, number>> {
+  await ensureOrdersTable();
+  const rows = await getD1().then((db) => db.prepare(
+    `SELECT shop_id, COUNT(*) AS count FROM orders WHERE status IN (${OPEN_STATUSES}) GROUP BY shop_id`,
+  ).all<{ shop_id: string; count: number }>()).catch(() => ({ results: [] }));
+  return new Map(rows.results.map((row) => [row.shop_id, row.count]));
+}
