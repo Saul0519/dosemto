@@ -10,6 +10,7 @@ import {
 } from "react";
 import Link from "next/link";
 import TurnstileCaptcha from "./turnstile-captcha";
+import { BASE_DEADLINE, DEADLINE_CHOICES, deadlineLabel } from "../db/deadlines";
 import AccountChip from "./account-chip";
 
 type RGB = [number, number, number];
@@ -135,7 +136,7 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, userName, login
   const [sourceImage, setSourceImage] = useState<HTMLImageElement | null>(null);
   const [gridX, setGridX] = useState(5);
   const [cropFrom, setCropFrom] = useState<"top" | "center" | "bottom">("bottom");
-  const [deadline, setDeadline] = useState(7);
+  const [deadline, setDeadline] = useState<number>(BASE_DEADLINE);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isRendering, setIsRendering] = useState(false);
   const [note, setNote] = useState("");
@@ -475,16 +476,27 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, userName, login
           </div>
 
           <div className="deadline-block">
-            <h3>마감일 <small style={{ color: "var(--ink-3)", fontWeight: 500 }}>7일이 기본가</small></h3>
-            <div className="deadline-grid">
-              {[1, 2, 3, 4, 5, 6, 7].map((day) => <button key={day} type="button" className={deadline === day ? "active" : ""} onClick={() => setDeadline(day)}>{day}일</button>)}
+            <h3>마감 <small style={{ color: "var(--ink-3)", fontWeight: 500 }}>기본이 기준 가격</small></h3>
+            <div className="deadline-grid two">
+              {DEADLINE_CHOICES.map((choice) => (
+                <button
+                  key={choice.value}
+                  type="button"
+                  className={deadline === choice.value ? "active" : ""}
+                  onClick={() => setDeadline(choice.value)}
+                  aria-pressed={deadline === choice.value}
+                >
+                  <b>{choice.label}</b>
+                  <span>{choice.hint}</span>
+                </button>
+              ))}
             </div>
           </div>
 
           <div className="price-breakdown">
             <h3>금액 내역</h3>
             <div><span>작품 제작 ({tileCount}장)</span><b>{formatWon(basePrice)}</b></div>
-            <div><span>마감 조정 ({deadline}일)</span><b className={rushPrice > 0 ? "rush" : ""}>{rushPrice > 0 ? `+${formatWon(rushPrice)}` : "추가 없음"}</b></div>
+            <div><span>마감 조정 ({deadlineLabel(deadline)})</span><b className={rushPrice > 0 ? "rush" : ""}>{rushPrice > 0 ? `+${formatWon(rushPrice)}` : "추가 없음"}</b></div>
           </div>
 
           {slots.enabled && (

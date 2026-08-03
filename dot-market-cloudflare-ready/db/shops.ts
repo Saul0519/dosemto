@@ -1,3 +1,4 @@
+import { BASE_DEADLINE, RUSH_DEADLINE } from "./deadlines";
 import { DEFAULT_PRICING, PricingConfig } from "./pricing";
 
 type ShopRow = {
@@ -391,7 +392,9 @@ export function validPricing(value: unknown): value is PricingConfig {
   if (!value || typeof value !== "object") return false;
   const pricing = value as PricingConfig;
   if (!Number.isInteger(pricing.tilePrice) || pricing.tilePrice < 100 || pricing.tilePrice > 1_000_000) return false;
-  return [1, 2, 3, 4, 5, 6, 7].every((day) => {
+  // Only the two turnarounds a shop can actually offer are required; the other
+  // columns are filled from the base rate on write.
+  return [RUSH_DEADLINE, BASE_DEADLINE].every((day) => {
     const multiplier = pricing.deadlineMultipliers?.[String(day)];
     return typeof multiplier === "number" && multiplier >= 1 && multiplier <= 10;
   });
@@ -436,8 +439,12 @@ export async function updateShopSettings(id: string, input: {
   slotManual: number;
 }) {
   await ensureShopsTable();
+  // Rush keeps its own rate; every other day column carries the base rate, so a
+  // value left over from the seven-day scheme cannot resurface later.
+  const rush = input.pricing.deadlineMultipliers[String(RUSH_DEADLINE)];
+  const base = input.pricing.deadlineMultipliers[String(BASE_DEADLINE)];
   const multipliers = [1, 2, 3, 4, 5, 6, 7].map((day) =>
-    Math.round(input.pricing.deadlineMultipliers[String(day)] * 1000),
+    Math.round((day === RUSH_DEADLINE ? rush : base) * 1000),
   );
   const db = await getD1();
 

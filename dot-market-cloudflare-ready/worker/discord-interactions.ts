@@ -6,6 +6,8 @@
  * checks. Both are easier to guarantee before the framework gets involved.
  */
 
+import { deadlineLabel } from "../db/deadlines";
+
 type Env = {
   DB: D1Database;
   DISCORD_PUBLIC_KEY?: string;
@@ -169,7 +171,7 @@ async function applyAction(input: {
       embeds: [{
         title: `주문 ${orderId}`,
         color: 0x4a7439,
-        description: `캔버스 ${order.tile_count}장 · 마감 ${order.deadline}일 · ${won}\n작업이 끝나면 다시 알려드립니다.`,
+        description: `캔버스 ${order.tile_count}장 · ${deadlineLabel(order.deadline)} · ${won}\n작업이 끝나면 다시 알려드립니다.`,
       }],
     };
     // A fresh message so the finish button is separate from the handled one.

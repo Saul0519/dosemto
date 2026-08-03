@@ -2,6 +2,7 @@
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { DEADLINE_CHOICES, deadlineLabel } from "../../db/deadlines";
 
 type Pricing = { tilePrice: number; deadlineMultipliers: Record<string, number> };
 /** Colours the save bar: a failure must not read as a success. */
@@ -417,7 +418,7 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
                   <div className="order-facts">
                     <div><span>연락처</span><b>{order.contact}</b></div>
                     <div><span>그림 크기</span><b>{order.gridX} × {order.gridY} · {order.tileCount}장</b></div>
-                    <div><span>마감</span><b>{order.deadline}일</b></div>
+                    <div><span>마감</span><b>{deadlineLabel(order.deadline)}</b></div>
                     <div><span>예상 금액</span><b>{order.totalPrice.toLocaleString("ko-KR")}원</b></div>
                   </div>
                   <dl>
@@ -468,9 +469,9 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
               </section>
 
               <section className="settings-card">
-                <div className="settings-section-head"><span>03</span><div><h3>가격과 마감</h3><p>한 장의 기본 가격과 일정별 배수를 설정합니다.</p></div></div>
+                <div className="settings-section-head"><span>03</span><div><h3>가격과 마감</h3><p>한 장의 기본 가격과, 당일 마감에 붙는 배수를 설정합니다.</p></div></div>
                 <label className="price-field">32×32 한 장 기본 가격<span><input type="number" min="100" max="1000000" step="100" value={draft.pricing.tilePrice} onChange={(e) => setDraft({ ...draft, pricing: { ...draft.pricing, tilePrice: Number(e.target.value) } })}/> 원</span></label>
-                <div className="admin-multiplier-grid">{[1,2,3,4,5,6,7].map((day) => <label key={day}><b>{day}일</b><span><input type="number" min="1" max="10" step="0.01" value={draft.pricing.deadlineMultipliers[String(day)]} onChange={(e) => setDraft({ ...draft, pricing: { ...draft.pricing, deadlineMultipliers: { ...draft.pricing.deadlineMultipliers, [String(day)]: Number(e.target.value) } } })}/>배</span><small>5×7 {Math.round(35 * draft.pricing.tilePrice * draft.pricing.deadlineMultipliers[String(day)]).toLocaleString("ko-KR")}원</small></label>)}</div>
+                <div className="admin-multiplier-grid">{DEADLINE_CHOICES.map((choice) => <label key={choice.value}><b>{choice.label}</b><span><input type="number" min="1" max="10" step="0.01" value={draft.pricing.deadlineMultipliers[String(choice.value)]} onChange={(e) => setDraft({ ...draft, pricing: { ...draft.pricing, deadlineMultipliers: { ...draft.pricing.deadlineMultipliers, [String(choice.value)]: Number(e.target.value) } } })}/>배</span><small>5×7 {Math.round(35 * draft.pricing.tilePrice * draft.pricing.deadlineMultipliers[String(choice.value)]).toLocaleString("ko-KR")}원</small></label>)}</div>
               </section>
 
               <section className="settings-card">

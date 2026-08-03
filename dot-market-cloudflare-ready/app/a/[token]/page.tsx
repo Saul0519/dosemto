@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { deadlineLabel } from "../../../db/deadlines";
 import { ACTION_LABELS, lookupAction } from "../../../db/order-actions";
 import { SITE } from "../../site-content";
 import ActionConfirm from "./confirm";
@@ -72,7 +73,7 @@ export default async function OrderActionPage({ params }: { params: Promise<{ to
         <dl className="action-facts">
           <div><dt>주문번호</dt><dd>{found.orderId}</dd></div>
           <div><dt>규격</dt><dd>{found.gridX} × {found.gridY} · {found.tileCount}장</dd></div>
-          <div><dt>마감</dt><dd>{found.deadline}일</dd></div>
+          <div><dt>마감</dt><dd>{deadlineLabel(found.deadline)}</dd></div>
           <div><dt>금액</dt><dd>{won(found.totalPrice)}</dd></div>
           <div><dt>연락처</dt><dd>{found.contact}</dd></div>
           <div><dt>현재 상태</dt><dd>{STATUS_LABELS[found.status] ?? found.status}</dd></div>

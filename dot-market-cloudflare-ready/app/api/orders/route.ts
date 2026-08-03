@@ -5,6 +5,7 @@ import { currentUser } from "../../../db/discord-session";
 import { postOrderMessage } from "../../../db/discord-bot";
 import { getOrderShop } from "../../../db/shops";
 import { slotState } from "../../../db/slots";
+import { deadlineLabel, isOfferedDeadline } from "../../../db/deadlines";
 import { verifyTurnstile } from "../../../db/turnstile";
 
 export const dynamic = "force-dynamic";
@@ -99,7 +100,7 @@ export async function POST(request: Request) {
   if (!(preview instanceof File)) {
     return Response.json({ error: "변환한 도안 이미지를 찾지 못했습니다." }, { status: 400 });
   }
-  if (![gridX, gridY, deadline].every(Number.isInteger) || gridX < 1 || gridX > 30 || gridY < 1 || gridY > 100 || deadline < 1 || deadline > 7) {
+  if (![gridX, gridY, deadline].every(Number.isInteger) || gridX < 1 || gridX > 30 || gridY < 1 || gridY > 100 || !isOfferedDeadline(deadline)) {
     return Response.json({ error: "격자 크기 또는 마감일이 올바르지 않습니다." }, { status: 400 });
   }
 
@@ -168,7 +169,7 @@ export async function POST(request: Request) {
       color: 0xff6157,
       fields: [
         { name: "주문자", value: `${orderer.name} (<@${orderer.id}>)`, inline: true },
-        { name: "마감", value: `${deadline}일`, inline: true },
+        { name: "마감", value: deadlineLabel(deadline), inline: true },
         { name: "예상 금액", value: `${calculatedPrice.toLocaleString("ko-KR")}원`, inline: true },
         { name: "규격", value: `${gridX}×${gridY} · ${tiles}장 · 장당 32×32`, inline: false },
         { name: "가장자리 처리", value: cropLabel, inline: false },

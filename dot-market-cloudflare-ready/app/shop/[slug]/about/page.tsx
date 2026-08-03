@@ -88,7 +88,7 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
             <dl>
               <div><dt>캔버스</dt><dd>한 장 32 × 32</dd></div>
               <div><dt>장당</dt><dd><b>{won(shop.pricing.tilePrice)}</b> · 장수 × 마감 배수</dd></div>
-              <div><dt>마감</dt><dd>1일 ~ 7일 · 7일이 기본가</dd></div>
+              <div><dt>마감</dt><dd>기본 또는 당일 마감</dd></div>
               <div><dt>받는 것</dt><dd>32px 격자선이 들어간 도안 PNG</dd></div>
               <div><dt>연락</dt><dd>주문 시 남긴 디스코드 ID</dd></div>
               {slots.enabled && (

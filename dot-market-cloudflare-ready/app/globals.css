@@ -1470,3 +1470,15 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 .open-order-note span { color: var(--ink-2); font-size: 12px; line-height: 1.6; }
 .open-order-note a { color: var(--ink); font-size: 12px; font-weight: 700; text-decoration: none; border-bottom: 1px solid var(--line-2); justify-self: start; }
 .open-order-note a:hover { border-bottom-color: var(--ink); }
+
+/* Two turnarounds instead of a seven-day dial, so each one can say what it is. */
+.deadline-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.deadline-grid.two button {
+  display: grid;
+  gap: 3px;
+  height: auto;
+  padding: 11px 12px;
+  text-align: left;
+}
+.deadline-grid.two button b { font-size: 13px; font-weight: 700; }
+.deadline-grid.two button span { font-size: 11px; opacity: .72; line-height: 1.4; }

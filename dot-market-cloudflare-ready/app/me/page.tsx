@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { deadlineLabel } from "../../db/deadlines";
 import { getUser } from "../session";
 import { listOrdersForUser } from "../../db/orders";
 import { getReviewForOrder } from "../../db/reviews";
@@ -105,7 +106,7 @@ export default async function MyOrdersPage() {
                       <h3><Link href={`/shop/${order.shopSlug}/about`}>{order.shopName}</Link></h3>
                       <dl>
                         <div><dt>규격</dt><dd>{order.gridX} × {order.gridY} · {order.tileCount}장</dd></div>
-                        <div><dt>마감</dt><dd>{order.deadline}일</dd></div>
+                        <div><dt>마감</dt><dd>{deadlineLabel(order.deadline)}</dd></div>
                         <div><dt>금액</dt><dd>{won(order.totalPrice)}</dd></div>
                         <div><dt>원본</dt><dd>{order.originalFilename}</dd></div>
                       </dl>
