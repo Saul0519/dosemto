@@ -1,10 +1,16 @@
 /**
  * "Sign in with Minecraft" via Mc-Auth (https://mc-auth.com).
  *
- * Mojang does not open its own login to third parties — the Microsoft →
- * Xbox Live → Minecraft Services route needs an approval nobody grants to a
- * commission site. Mc-Auth performs that handshake and hands back the verified
- * UUID and name, which is what sites like this actually need.
+ * Going direct — Microsoft → Xbox Live → XSTS → api.minecraftservices.com — is
+ * open to websites too, but the app has to be added to Mojang's allow list
+ * first (aka.ms/mce-reviewappid); until then that API answers 403. Mc-Auth is
+ * an already-approved broker that performs the handshake and hands back a
+ * verified UUID and name, so it stands in until our own application clears.
+ *
+ * Its flow costs the user more steps: they have to launch Minecraft and connect
+ * to mc-auth.com to be kicked with a code. Swapping to a direct Microsoft login
+ * cuts that to a single button, and only this file plus the two /api/mc routes
+ * need to change.
  *
  * The signed-in player is kept in an HMAC-signed cookie rather than a database
  * session: there is nothing to store beyond a name and a UUID, and a stateless

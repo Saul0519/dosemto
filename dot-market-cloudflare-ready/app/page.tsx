@@ -226,6 +226,7 @@ export default async function Home() {
               <span>{SITE.name}</span>
             </Link>
             <p>{SITE.footer} · {SITE.domain}</p>
+            <p className="site-disclaimer">{SITE.disclaimer}</p>
           </div>
           <nav aria-label="바닥글 메뉴">
             {NAV.map((item) => <a href={item.href} key={item.href}>{item.label}</a>)}

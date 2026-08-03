@@ -147,6 +147,7 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
         <div className="wrap">
           <span>{shop.name} · {SITE.domain}</span>
           <Link href={`/shop/${shop.slug}`}>주문 화면으로 이동</Link>
+          <p className="site-disclaimer">{SITE.disclaimer}</p>
         </div>
       </footer>
     </div>

@@ -12,6 +12,11 @@ export const SITE = {
     `도스 온라인 그림 외주 사이트. 올린 이미지를 ${DOSE_COLOUR_COUNT}색 팔레트로 바꿔 32×32 캔버스 단위로 자릅니다. ` +
     "가격과 마감은 샵마다 다르고, 변환한 도안 PNG는 주문 없이 다운로드합니다.",
   footer: "도스 온라인 그림 외주 사이트",
+  // Mojang's usage guidelines require any fan service to say plainly that it is
+  // not theirs. Applies whether or not we end up using their login.
+  disclaimer:
+    "이 사이트는 공식 마인크래프트 서비스가 아니며, Mojang 또는 Microsoft의 승인을 받았거나 이들과 제휴한 곳이 아닙니다. " +
+    "NOT AN OFFICIAL MINECRAFT SERVICE. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.",
 };
 
 export const NAV = [

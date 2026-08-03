@@ -1175,3 +1175,6 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 .login-actions .btn { width: 100%; }
 .remember-row { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .remember-row input { width: 16px; height: 16px; accent-color: var(--ink); }
+
+/* Required fan-content notice. Quiet, but present on every public page. */
+.site-disclaimer { flex-basis: 100%; margin: 0; color: var(--ink-3); font-size: 11px; line-height: 1.6; }
