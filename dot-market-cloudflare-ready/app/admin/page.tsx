@@ -17,7 +17,19 @@ const ACCESS_PATHS = [
   "dosemto.store/api/control/*",
 ];
 
-export default async function AdminPage() {
+const INVITE_RESULTS: Record<string, string> = {
+  ok: "봇을 서버에 초대했습니다. 아래에서 알림 채널을 골라 주세요.",
+  state: "초대 요청이 만료됐습니다. 다시 시도해 주세요.",
+  noguild: "서버를 고르지 않아 초대가 취소됐습니다.",
+  forbidden: "이 샵을 관리할 권한이 없습니다.",
+  save: "초대는 됐지만 저장에 실패했습니다. 다시 시도해 주세요.",
+  unconfigured: "디스코드 앱 설정이 아직 완료되지 않았습니다.",
+};
+
+export default async function AdminPage({ searchParams }: {
+  searchParams: Promise<{ invite?: string }>;
+}) {
+  const { invite } = await searchParams;
   const user = await getChatGPTUser();
 
   if (!user) {
@@ -70,6 +82,7 @@ export default async function AdminPage() {
       orders={orders}
       isSuperAdmin={superAdmin}
       signOutPath={signOutPath}
+      inviteResult={invite ? INVITE_RESULTS[invite] ?? null : null}
     />
   );
 }

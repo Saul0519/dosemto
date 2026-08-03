@@ -34,7 +34,7 @@ export async function GET(request: Request) {
   authorize.searchParams.set("scope", "bot");
   authorize.searchParams.set("response_type", "code");
   authorize.searchParams.set("integration_type", "0");
-  authorize.searchParams.set("redirect_uri", `${url.origin}/api/discord/invited`);
+  authorize.searchParams.set("redirect_uri", `${url.origin}/api/admin/invited`);
   authorize.searchParams.set("state", state);
 
   return new Response(null, {

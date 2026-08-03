@@ -82,12 +82,14 @@ function formatOrderDate(value: string) {
   });
 }
 
-export default function AdminPanel({ userName, shops: initialShops, orders: initialOrders, isSuperAdmin, signOutPath }: {
+export default function AdminPanel({ userName, shops: initialShops, orders: initialOrders, isSuperAdmin, signOutPath, inviteResult }: {
   userName: string;
   shops: ManagedShop[];
   orders: ManagedOrder[];
   isSuperAdmin: boolean;
   signOutPath: string;
+  /** Outcome of a bot invite the manager just came back from. */
+  inviteResult?: string | null;
 }) {
   const [shops, setShops] = useState(initialShops);
   const [selectedId, setSelectedId] = useState(initialShops[0]?.id ?? "");
@@ -98,11 +100,11 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
   const [channels, setChannels] = useState<{ id: string; name: string }[]>([]);
   const [needsInvite, setNeedsInvite] = useState(false);
   const [channelsBusy, setChannelsBusy] = useState(false);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(inviteResult ?? "");
   const [busy, setBusy] = useState(false);
   const [imageBusy, setImageBusy] = useState(false);
   const [orders, setOrders] = useState(initialOrders);
-  const [dashboardMode, setDashboardMode] = useState<"orders" | "settings">("orders");
+  const [dashboardMode, setDashboardMode] = useState<"orders" | "settings">(inviteResult ? "settings" : "orders");
   const [orderBusy, setOrderBusy] = useState("");
   const visibleOrders = useMemo(() => orders.filter((order) => order.shopId === selectedId), [orders, selectedId]);
 
@@ -336,7 +338,7 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
                 <div className="settings-section-head"><span>04</span><div><h3>디스코드 주문 알림</h3><p>새 주문 알림을 받을 채널의 ID를 입력합니다. 봇이 그 채널에 글을 쓸 수 있어야 합니다.</p></div><i className={draft.webhookConfigured ? "connected" : "not-connected"}>{draft.webhookConfigured ? "연결됨" : "연결 필요"}</i></div>
                 <p className="field-help">봇을 서버에 초대하면 아래에서 채널을 고를 수 있습니다. 봇은 글을 쓰기만 하고 대화 내용은 읽지 않습니다.</p>
                 <p className="invite-row">
-                  <a className="plain-upload-button" href={`/api/discord/invite?shop=${draft.id}`}>
+                  <a className="plain-upload-button" href={`/api/admin/invite?shop=${draft.id}`}>
                     {draft.guildId ? "다른 서버로 다시 초대" : "봇 초대하기"}
                   </a>
                   {draft.guildId && <button type="button" className="plain-upload-button" onClick={() => void loadChannels(draft.id, true)} disabled={channelsBusy}>{channelsBusy ? "불러오는 중…" : "채널 목록 새로고침"}</button>}
