@@ -1,4 +1,4 @@
-import { randomToken } from "../../../../db/order-actions";
+import { randomToken } from "../../../../db/random-token";
 import {
   STATE_COOKIE,
   cookieHeader,

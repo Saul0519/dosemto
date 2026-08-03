@@ -1,6 +1,6 @@
 import { validateImageFile } from "../../../db/image-validation";
 import { createOrder, setOrderMessageId, setOrderWebhookResult, countActiveOrders, findOpenOrderFor } from "../../../db/orders";
-import { randomToken } from "../../../db/order-actions";
+import { randomToken } from "../../../db/random-token";
 import { currentUser } from "../../../db/discord-session";
 import { postOrderMessage } from "../../../db/discord-bot";
 import { getOrderShop } from "../../../db/shops";

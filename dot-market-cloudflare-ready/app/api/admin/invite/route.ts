@@ -1,4 +1,4 @@
-import { randomToken } from "../../../../db/order-actions";
+import { randomToken } from "../../../../db/random-token";
 import { cookieHeader, discordConfig } from "../../../../db/discord-session";
 import { getChatGPTUser } from "../../../chatgpt-auth";
 import { getShopForManager } from "../../../../db/shops";

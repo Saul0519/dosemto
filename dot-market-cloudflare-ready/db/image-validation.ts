@@ -1,11 +1,9 @@
-export const IMAGE_MIME_TYPES = [
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/gif",
-] as const;
-
-export type SupportedImageMime = (typeof IMAGE_MIME_TYPES)[number];
+/** The formats this site will accept, checked against the file's own bytes. */
+export type SupportedImageMime =
+  | "image/png"
+  | "image/jpeg"
+  | "image/webp"
+  | "image/gif";
 
 const EXTENSIONS: Record<SupportedImageMime, readonly string[]> = {
   "image/png": ["png"],
@@ -18,7 +16,7 @@ function startsWith(bytes: Uint8Array, signature: readonly number[]) {
   return signature.every((value, index) => bytes[index] === value);
 }
 
-export function detectImageMime(bytes: Uint8Array): SupportedImageMime | null {
+function detectImageMime(bytes: Uint8Array): SupportedImageMime | null {
   if (bytes.length >= 8 && startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) {
     return "image/png";
   }
@@ -42,7 +40,7 @@ export function detectImageMime(bytes: Uint8Array): SupportedImageMime | null {
   return null;
 }
 
-export function extensionForMime(mime: SupportedImageMime) {
+function extensionForMime(mime: SupportedImageMime) {
   return mime === "image/jpeg" ? "jpg" : EXTENSIONS[mime][0];
 }
 

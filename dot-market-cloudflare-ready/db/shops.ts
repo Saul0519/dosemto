@@ -78,10 +78,8 @@ export type ManagedShop = PublicShop & {
   updatedAt: string;
 };
 
-export type OrderShop = ManagedShop & {
-  webhookCiphertext: string | null;
-  webhookIv: string | null;
-};
+/** Nothing extra any more: order notifications go through the bot. */
+export type OrderShop = ManagedShop;
 
 async function getD1() {
   const { env } = await import("cloudflare:workers");
@@ -321,11 +319,7 @@ function toManagedShop(row: ShopRow, images: ShopImage[] = []): ManagedShop {
 }
 
 function toOrderShop(row: ShopRow): OrderShop {
-  return {
-    ...toManagedShop(row),
-    webhookCiphertext: row.webhook_ciphertext,
-    webhookIv: row.webhook_iv,
-  };
+  return toManagedShop(row);
 }
 
 export async function listPublicShops(): Promise<PublicShop[]> {
@@ -543,13 +537,6 @@ export async function getShopImageObjectKey(shopId: string, imageId: string) {
   return row?.object_key ?? null;
 }
 
-export async function countShopOrders(shopId: string) {
-  await ensureShopsTable();
-  const row = await getD1().then((db) =>
-    db.prepare("SELECT COUNT(*) AS count FROM orders WHERE shop_id = ?").bind(shopId).first<{ count: number }>(),
-  ).catch(() => null);
-  return row?.count ?? 0;
-}
 
 /**
  * Removes a shop and everything that hangs off it.

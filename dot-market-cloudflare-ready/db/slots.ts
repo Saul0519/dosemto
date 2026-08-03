@@ -39,8 +39,3 @@ export function slotState(
     full: max > 0 && used >= max,
   };
 }
-
-/** "3/5" — the same wording everywhere it appears. */
-export function slotLabel(state: SlotState) {
-  return `${state.used}/${state.max}`;
-}

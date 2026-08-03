@@ -42,7 +42,7 @@ async function getD1() {
  */
 let migrateReviewsTableReady: Promise<void> | null = null;
 
-export async function ensureReviewsTable() {
+async function ensureReviewsTable() {
   if (!migrateReviewsTableReady) {
     migrateReviewsTableReady = migrateReviewsTable().catch((error) => { migrateReviewsTableReady = null; throw error; });
   }
