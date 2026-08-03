@@ -1,5 +1,6 @@
 /** Cloudflare Worker entry point for DOT MARKET's vinext application. */
 import handler from "vinext/server/app-router-entry";
+import { handleInteraction } from "./discord-interactions";
 
 interface Env {
   ASSETS: Fetcher;
@@ -9,6 +10,10 @@ interface Env {
   TURNSTILE_SITE_KEY: string;
   TURNSTILE_SECRET_KEY: string;
   WEBHOOK_ENCRYPTION_KEY: string;
+  DISCORD_CLIENT_ID: string;
+  DISCORD_CLIENT_SECRET: string;
+  DISCORD_PUBLIC_KEY: string;
+  DISCORD_BOT_TOKEN: string;
 }
 
 interface ExecutionContext {
@@ -16,14 +21,16 @@ interface ExecutionContext {
   passThroughOnException(): void;
 }
 
-// Image security config. SVG sources with .svg extension auto-skip the
-// optimization endpoint on the client side (served directly, no proxy).
-// To route SVGs through the optimizer (with security headers), set
-// dangerouslyAllowSVG: true in next.config.js and uncomment below:
-// const imageConfig: ImageConfig = { dangerouslyAllowSVG: true };
-
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    // Discord expects a reply within three seconds and drops an endpoint whose
+    // signature check ever misbehaves, so this one is answered here rather than
+    // through the app router. It also needs ctx.waitUntil, which the framework
+    // does not hand down.
+    const { pathname } = new URL(request.url);
+    if (pathname === "/api/discord/interactions" && request.method === "POST") {
+      return handleInteraction(request, env, ctx);
+    }
     return handler.fetch(request, env, ctx);
   },
 };

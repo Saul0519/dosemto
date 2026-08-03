@@ -10,6 +10,7 @@ type ShopRow = {
   manager_email: string;
   webhook_ciphertext: string | null;
   webhook_iv: string | null;
+  channel_id: string | null;
   tile_price: number;
   day_1_multiplier: number;
   day_2_multiplier: number;
@@ -50,7 +51,10 @@ export type PublicShop = {
   aboutText: string;
   images: ShopImage[];
   pricing: PricingConfig;
+  /** True once the shop can actually receive orders. */
   webhookConfigured: boolean;
+  /** Discord channel the bot posts order notifications to. */
+  channelId: string | null;
 };
 
 export type ManagedShop = PublicShop & {
@@ -122,6 +126,9 @@ async function ensureShopsTable() {
     db.prepare("CREATE INDEX IF NOT EXISTS shop_images_shop_id_idx ON shop_images (shop_id, position)"),
   ]);
 
+  // Added when order notifications moved from webhooks to the bot.
+  await db.prepare("ALTER TABLE shops ADD COLUMN channel_id TEXT").run().catch(() => undefined);
+
   const owner = await superAdminEmail();
   if (owner) {
     await db.prepare(`INSERT OR IGNORE INTO shops (
@@ -137,7 +144,7 @@ async function ensureShopsTable() {
 }
 
 const selectColumns = `id, slug, name, description, about_title, about_text, manager_email,
-  webhook_ciphertext, webhook_iv, tile_price,
+  webhook_ciphertext, webhook_iv, channel_id, tile_price,
   day_1_multiplier, day_2_multiplier, day_3_multiplier, day_4_multiplier,
   day_5_multiplier, day_6_multiplier, day_7_multiplier,
   active, created_at, updated_at`;
@@ -186,7 +193,10 @@ function toManagedShop(row: ShopRow, images: ShopImage[] = []): ManagedShop {
     images,
     managerEmail: row.manager_email,
     pricing: rowPricing(row),
-    webhookConfigured: Boolean(row.webhook_ciphertext && row.webhook_iv),
+    channelId: row.channel_id,
+    // Orders go out through the bot now, so a channel is what makes a shop
+    // reachable. The name is kept so existing callers keep working.
+    webhookConfigured: Boolean(row.channel_id),
     active: Boolean(row.active),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -301,22 +311,21 @@ export async function updateShopSettings(id: string, input: {
   aboutTitle: string;
   aboutText: string;
   pricing: PricingConfig;
-  webhookCiphertext?: string | null;
-  webhookIv?: string | null;
+  channelId?: string | null;
 }) {
   await ensureShopsTable();
   const multipliers = [1, 2, 3, 4, 5, 6, 7].map((day) =>
     Math.round(input.pricing.deadlineMultipliers[String(day)] * 1000),
   );
   const db = await getD1();
-  if (input.webhookCiphertext !== undefined) {
+  if (input.channelId !== undefined) {
     await db.prepare(`UPDATE shops SET name = ?, description = ?, about_title = ?, about_text = ?, tile_price = ?,
       day_1_multiplier = ?, day_2_multiplier = ?, day_3_multiplier = ?,
       day_4_multiplier = ?, day_5_multiplier = ?, day_6_multiplier = ?,
-      day_7_multiplier = ?, webhook_ciphertext = ?, webhook_iv = ?,
+      day_7_multiplier = ?, channel_id = ?,
       updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(
       input.name, input.description, input.aboutTitle, input.aboutText, input.pricing.tilePrice, ...multipliers,
-      input.webhookCiphertext, input.webhookIv ?? null, id,
+      input.channelId, id,
     ).run();
   } else {
     await db.prepare(`UPDATE shops SET name = ?, description = ?, about_title = ?, about_text = ?, tile_price = ?,

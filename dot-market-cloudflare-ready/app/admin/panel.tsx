@@ -16,6 +16,7 @@ type ManagedShop = {
   managerEmail: string;
   pricing: Pricing;
   webhookConfigured: boolean;
+  channelId: string | null;
   active: boolean;
 };
 
@@ -91,8 +92,8 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
   const [selectedId, setSelectedId] = useState(initialShops[0]?.id ?? "");
   const selected = useMemo(() => shops.find((shop) => shop.id === selectedId) ?? null, [shops, selectedId]);
   const [draft, setDraft] = useState<ManagedShop | null>(initialShops[0] ?? null);
-  const [webhook, setWebhook] = useState("");
-  const [removeWebhook, setRemoveWebhook] = useState(false);
+  const [channelId, setChannelId] = useState("");
+  const [removeChannel, setRemoveChannel] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [imageBusy, setImageBusy] = useState(false);
@@ -110,8 +111,8 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
     const next = shops.find((shop) => shop.id === id) ?? null;
     setSelectedId(id);
     setDraft(next);
-    setWebhook("");
-    setRemoveWebhook(false);
+    setChannelId("");
+    setRemoveChannel(false);
     setMessage("");
   };
 
@@ -129,13 +130,13 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
           aboutTitle: draft.aboutTitle,
           aboutText: draft.aboutText,
           pricing: draft.pricing,
-          webhook,
-          removeWebhook,
+          channelId,
+          removeChannel,
         }),
       });
       const result = await readResult(response, "저장하지 못했습니다.");
       replaceShop(result.shop as ManagedShop);
-      setWebhook(""); setRemoveWebhook(false);
+      setChannelId(""); setRemoveChannel(false);
       setMessage("변경사항을 저장했습니다.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "저장하지 못했습니다.");
@@ -300,10 +301,10 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
               </section>
 
               <section className="settings-card">
-                <div className="settings-section-head"><span>04</span><div><h3>디스코드 주문 알림</h3><p>새 주문이 들어올 채널의 웹훅 주소를 입력합니다.</p></div><i className={draft.webhookConfigured ? "connected" : "not-connected"}>{draft.webhookConfigured ? "연결됨" : "연결 필요"}</i></div>
-                <p className="field-help">주소는 암호화해 저장하며 화면에 다시 표시하지 않습니다. 비워 두면 기존 주소를 유지합니다.</p>
-                <label>새 디스코드 웹훅 URL<input type="password" autoComplete="off" value={webhook} onChange={(e) => { setWebhook(e.target.value); setRemoveWebhook(false); }} placeholder="https://discord.com/api/webhooks/…"/></label>
-                {draft.webhookConfigured && <label className="check-row"><input type="checkbox" checked={removeWebhook} onChange={(e) => { setRemoveWebhook(e.target.checked); if (e.target.checked) setWebhook(""); }}/><span>저장된 웹훅 연결 해제</span></label>}
+                <div className="settings-section-head"><span>04</span><div><h3>디스코드 주문 알림</h3><p>새 주문 알림을 받을 채널의 ID를 입력합니다. 봇이 그 채널에 글을 쓸 수 있어야 합니다.</p></div><i className={draft.webhookConfigured ? "connected" : "not-connected"}>{draft.webhookConfigured ? "연결됨" : "연결 필요"}</i></div>
+                <p className="field-help">비워 두면 기존 채널을 유지합니다. 봇이 그 서버에 초대돼 있고 해당 채널에 <b>메시지 보내기</b>·<b>링크 첨부</b>·<b>파일 첨부</b> 권한이 있어야 알림이 갑니다.</p>
+                <label>알림 채널 ID<input inputMode="numeric" autoComplete="off" value={channelId} onChange={(e) => { setChannelId(e.target.value); setRemoveChannel(false); }} placeholder={draft.channelId ?? "예: 1234567890123456789"}/><small>디스코드 설정 → 고급 → 개발자 모드를 켠 뒤, 채널을 우클릭하고 &quot;채널 ID 복사&quot;를 누르세요.</small></label>
+                {draft.webhookConfigured && <label className="check-row"><input type="checkbox" checked={removeChannel} onChange={(e) => { setRemoveChannel(e.target.checked); if (e.target.checked) setChannelId(""); }}/><span>알림 채널 연결 해제 (주문 접수 중단)</span></label>}
               </section>
 
               <div className="save-bar"><span>{message}</span><button disabled={busy || imageBusy}>{busy ? "저장 중…" : "변경사항 저장"}</button></div>
