@@ -22,6 +22,7 @@ type ShopRow = {
   day_5_multiplier: number;
   day_6_multiplier: number;
   day_7_multiplier: number;
+  cover_image_id: string | null;
   active: number;
   created_at: string;
   updated_at: string;
@@ -64,6 +65,8 @@ export type PublicShop = {
   slotMax: number;
   /** Slots the manager filled by hand, for work taken outside the site. */
   slotManual: number;
+  /** Image the manager picked to represent the shop; null means "the first one". */
+  coverImageId: string | null;
 };
 
 export type ManagedShop = PublicShop & {
@@ -141,9 +144,42 @@ async function ensureShopsTable() {
   // Capacity the shop advertises, and the part of it filled by hand.
   await db.prepare("ALTER TABLE shops ADD COLUMN slot_max INTEGER NOT NULL DEFAULT 0").run().catch(() => undefined);
   await db.prepare("ALTER TABLE shops ADD COLUMN slot_manual INTEGER NOT NULL DEFAULT 0").run().catch(() => undefined);
+  // Which uploaded image represents the shop. Null falls back to position order.
+  await db.prepare("ALTER TABLE shops ADD COLUMN cover_image_id TEXT").run().catch(() => undefined);
+
+  await seedDefaultShopOnce(db);
+}
+
+/**
+ * Creates the starter shop the very first time this database is used.
+ *
+ * It has to be once and only once. This ran on every call before, so deleting
+ * the starter shop in the control panel appeared to work and then the next
+ * request put it straight back — INSERT OR IGNORE only skips a row that is
+ * still there. The marker is what makes the deletion stick.
+ */
+async function seedDefaultShopOnce(db: Awaited<ReturnType<typeof getD1>>) {
+  await db.prepare(
+    "CREATE TABLE IF NOT EXISTS site_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
+  ).run();
+
+  const done = await db.prepare("SELECT value FROM site_meta WHERE key = 'default_shop_seeded'")
+    .first<{ value: string }>().catch(() => null);
+  if (done) return;
 
   const owner = await superAdminEmail();
-  if (owner) {
+  if (!owner) return;
+
+  // A database that already has shops predates this marker; record that the
+  // seed is settled rather than adding a starter shop to a live site.
+  const existing = await db.prepare("SELECT COUNT(*) AS count FROM shops")
+    .first<{ count: number }>().catch(() => null);
+  // Not knowing the count is not the same as knowing it is zero. Guessing here
+  // would put the starter shop back on a site that deliberately removed it,
+  // which is the whole failure this marker exists to prevent. Try again later.
+  if (!existing) return;
+
+  if (existing.count === 0) {
     await db.prepare(`INSERT OR IGNORE INTO shops (
       id, slug, name, description, manager_email
     ) VALUES (?, ?, ?, ?, ?)`).bind(
@@ -154,10 +190,14 @@ async function ensureShopsTable() {
       owner,
     ).run();
   }
+
+  await db.prepare(
+    "INSERT OR REPLACE INTO site_meta (key, value) VALUES ('default_shop_seeded', ?)",
+  ).bind(new Date().toISOString()).run();
 }
 
 const selectColumns = `id, slug, name, description, about_title, about_text, manager_email,
-  webhook_ciphertext, webhook_iv, channel_id, guild_id, slot_max, slot_manual, tile_price,
+  webhook_ciphertext, webhook_iv, channel_id, guild_id, slot_max, slot_manual, cover_image_id, tile_price,
   day_1_multiplier, day_2_multiplier, day_3_multiplier, day_4_multiplier,
   day_5_multiplier, day_6_multiplier, day_7_multiplier,
   active, created_at, updated_at`;
@@ -187,11 +227,21 @@ function toImage(row: ShopImageRow): ShopImage {
   };
 }
 
+/**
+ * Images newest-last, except the one the manager picked as the cover, which
+ * always comes first. Everything downstream — the market card, the gallery's
+ * opening frame — reads index 0, so choosing a cover is just this ordering.
+ *
+ * A cover_image_id left pointing at a deleted image simply matches nothing and
+ * the list falls back to position order.
+ */
 async function listImages(shopId: string): Promise<ShopImage[]> {
   const rows = await getD1().then((db) => db.prepare(`SELECT id, shop_id,
     object_key, filename, content_type, position, created_at
-    FROM shop_images WHERE shop_id = ? ORDER BY position ASC, created_at ASC`
-  ).bind(shopId).all<ShopImageRow>());
+    FROM shop_images WHERE shop_id = ?
+    ORDER BY id = (SELECT cover_image_id FROM shops WHERE id = ?) DESC,
+      position ASC, created_at ASC`
+  ).bind(shopId, shopId).all<ShopImageRow>());
   return rows.results.map(toImage);
 }
 
@@ -210,6 +260,7 @@ function toManagedShop(row: ShopRow, images: ShopImage[] = []): ManagedShop {
     guildId: row.guild_id,
     slotMax: row.slot_max ?? 0,
     slotManual: row.slot_manual ?? 0,
+    coverImageId: row.cover_image_id ?? null,
     // Orders go out through the bot now, so a channel is what makes a shop
     // reachable. The name is kept so existing callers keep working.
     webhookConfigured: Boolean(row.channel_id),
@@ -373,15 +424,31 @@ export async function addShopImage(input: {
   await ensureShopsTable();
   const id = crypto.randomUUID();
   const db = await getD1();
-  const count = await db.prepare("SELECT COUNT(*) AS count FROM shop_images WHERE shop_id = ?")
-    .bind(input.shopId).first<{ count: number }>();
-  if ((count?.count ?? 0) >= 10) throw new Error("이미지는 샵당 최대 10장까지 올릴 수 있습니다.");
-  const position = count?.count ?? 0;
+  const tail = await db.prepare(
+    "SELECT COUNT(*) AS count, MAX(position) AS last FROM shop_images WHERE shop_id = ?",
+  ).bind(input.shopId).first<{ count: number; last: number | null }>();
+  if ((tail?.count ?? 0) >= 10) throw new Error("이미지는 샵당 최대 10장까지 올릴 수 있습니다.");
+  // One past the highest position, not the row count. Deleting images leaves
+  // gaps, and counting rows used to hand a new upload a position that already
+  // existed — sometimes 0, which quietly made it the shop's cover.
+  const position = (tail?.last ?? -1) + 1;
   await db.prepare(`INSERT INTO shop_images
     (id, shop_id, object_key, filename, content_type, position)
     VALUES (?, ?, ?, ?, ?, ?)`
   ).bind(id, input.shopId, input.objectKey, input.filename, input.contentType, position).run();
   return { id, position };
+}
+
+/** Marks one of the shop's own images as its cover. */
+export async function setShopCoverImage(shopId: string, imageId: string) {
+  await ensureShopsTable();
+  const db = await getD1();
+  const image = await db.prepare("SELECT id FROM shop_images WHERE id = ? AND shop_id = ?")
+    .bind(imageId, shopId).first<{ id: string }>();
+  if (!image) return false;
+  await db.prepare("UPDATE shops SET cover_image_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+    .bind(imageId, shopId).run();
+  return true;
 }
 
 export async function removeShopImage(shopId: string, imageId: string) {
@@ -391,8 +458,12 @@ export async function removeShopImage(shopId: string, imageId: string) {
     content_type, position, created_at FROM shop_images WHERE id = ? AND shop_id = ?`
   ).bind(imageId, shopId).first<ShopImageRow>();
   if (!image) return null;
-  await db.prepare("DELETE FROM shop_images WHERE id = ? AND shop_id = ?")
-    .bind(imageId, shopId).run();
+  await db.batch([
+    db.prepare("DELETE FROM shop_images WHERE id = ? AND shop_id = ?").bind(imageId, shopId),
+    // Otherwise the shop keeps pointing at an image that is gone.
+    db.prepare("UPDATE shops SET cover_image_id = NULL WHERE id = ? AND cover_image_id = ?")
+      .bind(shopId, imageId),
+  ]);
   return image.object_key;
 }
 
@@ -449,17 +520,34 @@ export async function deleteShopCascade(id: string) {
     ...orders.results.flatMap((row) => [row.preview_object_key, row.original_object_key]),
   ].filter((key): key is string => Boolean(key));
 
+  const reviews = await db.prepare("SELECT COUNT(*) AS count FROM reviews WHERE shop_id = ?")
+    .bind(id).first<{ count: number }>().catch(() => null);
+
   await db.batch([
     db.prepare("DELETE FROM shop_images WHERE shop_id = ?").bind(id),
     db.prepare("DELETE FROM shops WHERE id = ?").bind(id),
   ]);
-  await db.prepare("DELETE FROM orders WHERE shop_id = ?").bind(id).run().catch(() => undefined);
+
+  // Everything hanging off the shop's orders. Each table is optional on a
+  // database that never had one, so they run separately rather than in a batch
+  // where one missing table would roll the whole thing back. Reviews go with
+  // the shop: a review of a shop nobody can visit is not a record of anything,
+  // and leaving them would strand rows that no screen can ever reach again.
+  for (const statement of [
+    "DELETE FROM reviews WHERE shop_id = ?",
+    "DELETE FROM order_actions WHERE order_id IN (SELECT id FROM orders WHERE shop_id = ?)",
+    "DELETE FROM review_tokens WHERE order_id IN (SELECT id FROM orders WHERE shop_id = ?)",
+    "DELETE FROM orders WHERE shop_id = ?",
+  ]) {
+    await db.prepare(statement).bind(id).run().catch(() => undefined);
+  }
 
   return {
     slug: shop.slug,
     name: shop.name,
     imageCount: images.results.length,
     orderCount: orders.results.length,
+    reviewCount: reviews?.count ?? 0,
     objectKeys,
   };
 }

@@ -131,7 +131,11 @@ export default async function Home() {
             </div>
             <div className="shop-grid">
               {shops.map((shop) => (
-                <Link className="shop-card" href={`/shop/${shop.slug}/about`} key={shop.id}>
+                // An article, not a Link: the rating below is its own link to
+                // the reviews, and an anchor inside an anchor is invalid HTML.
+                // The title link is stretched over the card instead, so the
+                // whole tile still opens the shop.
+                <article className="shop-card" key={shop.id}>
                   <div className="shop-art">
                     {shop.images[0] ? (
                       <>
@@ -157,21 +161,24 @@ export default async function Home() {
                         return <span className="ready">주문 가능</span>;
                       })()}
                     </div>
-                    <h3>{shop.name}</h3>
+                    <h3><Link className="shop-card-open" href={`/shop/${shop.slug}/about`}>{shop.name}</Link></h3>
                     {(ratings.get(shop.id)?.count ?? 0) > 0 && (
-                      <p className="card-rating">
+                      <Link className="card-rating" href={`/shop/${shop.slug}/about#reviews`}>
                         <b aria-hidden="true">{"★".repeat(Math.round(ratings.get(shop.id)!.average))}<i>{"★".repeat(5 - Math.round(ratings.get(shop.id)!.average))}</i></b>
                         <strong>{ratings.get(shop.id)!.average.toFixed(1)}</strong>
                         <span>({ratings.get(shop.id)!.count})</span>
-                      </p>
+                        <em>후기 보기</em>
+                      </Link>
                     )}
-                    <p>{shop.description || "32×32 캔버스 도안을 만드는 샵입니다."}</p>
+                    {/* One element, not a paragraph per line: each would become
+                        its own grid item and space itself out by the grid gap. */}
+                    <p className="shop-card-desc">{shop.description || "32×32 캔버스 도안을 만드는 샵입니다."}</p>
                     <b>
                       장당 {won(shop.pricing.tilePrice)}부터
                       <span>자세히 보기 →</span>
                     </b>
                   </div>
-                </Link>
+                </article>
               ))}
               {shops.length === 0 && (
                 <div className="empty-shops">

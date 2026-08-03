@@ -4,6 +4,8 @@ import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } fro
 import Link from "next/link";
 
 type Pricing = { tilePrice: number; deadlineMultipliers: Record<string, number> };
+/** Colours the save bar: a failure must not read as a success. */
+type NoticeKind = "info" | "success" | "error";
 type ShopImage = { id: string; filename: string; contentType: string; position: number; url: string };
 type ManagedShop = {
   id: string;
@@ -18,6 +20,7 @@ type ManagedShop = {
   webhookConfigured: boolean;
   channelId: string | null;
   guildId: string | null;
+  coverImageId: string | null;
   slotMax: number;
   slotManual: number;
   active: boolean;
@@ -103,6 +106,10 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
   const [needsInvite, setNeedsInvite] = useState(false);
   const [channelsBusy, setChannelsBusy] = useState(false);
   const [message, setMessage] = useState(inviteResult ?? "");
+  const [messageKind, setMessageKind] = useState<NoticeKind>("info");
+  const say = useCallback((text: string, kind: NoticeKind = "info") => {
+    setMessage(text); setMessageKind(kind);
+  }, []);
   const [busy, setBusy] = useState(false);
   const [imageBusy, setImageBusy] = useState(false);
   const [orders, setOrders] = useState(initialOrders);
@@ -138,9 +145,23 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void loadChannels(selectedId); }, [selectedId, loadChannels]);
 
+  /** After a save: server state is the truth, and the form is clean again. */
   const replaceShop = (next: ManagedShop) => {
     setShops((current) => current.map((shop) => shop.id === next.id ? next : shop));
     setDraft(next);
+  };
+
+  /**
+   * After an image action, take only what the image action changed.
+   *
+   * Uploading or deleting an image used to overwrite the whole draft with the
+   * server's copy, silently throwing away whatever the manager had typed into
+   * the name or description fields but not yet saved.
+   */
+  const applyImageResult = (next: ManagedShop) => {
+    const patch = { images: next.images, coverImageId: next.coverImageId };
+    setShops((current) => current.map((shop) => shop.id === next.id ? { ...shop, ...patch } : shop));
+    setDraft((current) => current && current.id === next.id ? { ...current, ...patch } : current);
   };
 
   const chooseShop = (id: string) => {
@@ -149,13 +170,35 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
     setDraft(next);
     setChannelId("");
     setRemoveChannel(false);
-    setMessage("");
+    say("");
   };
+
+  /**
+   * What the form can change, as one comparable value. `selected` is the server
+   * copy and `draft` is what is on screen, so any difference is unsaved work.
+   * Image and slot actions write to both at once and so never look dirty.
+   */
+  const fingerprint = (shop: ManagedShop | null) => shop && JSON.stringify([
+    shop.name, shop.description, shop.aboutTitle, shop.aboutText,
+    shop.pricing.tilePrice, shop.pricing.deadlineMultipliers,
+    shop.slotMax, shop.slotManual,
+  ]);
+  const dirty = Boolean(draft) && (
+    fingerprint(draft) !== fingerprint(selected) || Boolean(channelId) || removeChannel
+  );
+
+  // Closing the tab mid-edit is the one case an in-page notice cannot reach.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
     if (!draft) return;
-    setBusy(true); setMessage("");
+    setBusy(true); say("");
     try {
       const response = await fetch(`/api/admin/shops/${draft.id}`, {
         method: "PUT",
@@ -175,9 +218,9 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
       const result = await readResult(response, "저장하지 못했습니다.");
       replaceShop(result.shop as ManagedShop);
       setChannelId(""); setRemoveChannel(false);
-      setMessage("변경사항을 저장했습니다.");
+      say("변경사항을 저장했습니다.", "success");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "저장하지 못했습니다.");
+      say(error instanceof Error ? error.message : "저장하지 못했습니다.", "error");
     } finally { setBusy(false); }
   };
 
@@ -197,7 +240,7 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ slotManual: next }),
     }).catch(() => null);
-    if (!response?.ok) setMessage("슬롯을 저장하지 못했습니다. 새로고침 후 다시 시도해 주세요.");
+    if (!response?.ok) say("슬롯을 저장하지 못했습니다. 새로고침 후 다시 시도해 주세요.", "error");
   };
 
   const uploadImages = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -206,14 +249,14 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
     if (!draft || selectedFiles.length === 0) return;
     const form = new FormData();
     selectedFiles.forEach((file) => form.append("images", file));
-    setImageBusy(true); setMessage("");
+    setImageBusy(true); say("");
     try {
       const response = await fetch(`/api/admin/shops/${draft.id}/images`, { method: "POST", body: form });
       const result = await readResult(response, "이미지를 올리지 못했습니다.");
-      replaceShop(result.shop as ManagedShop);
-      setMessage("작업 이미지를 추가했습니다.");
+      applyImageResult(result.shop as ManagedShop);
+      say("작업 이미지를 추가했습니다.", "success");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "이미지를 올리지 못했습니다.");
+      say(error instanceof Error ? error.message : "이미지를 올리지 못했습니다.", "error");
     } finally {
       setImageBusy(false);
       input.value = "";
@@ -222,14 +265,27 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
 
   const deleteImage = async (imageId: string) => {
     if (!draft) return;
-    setImageBusy(true); setMessage("");
+    setImageBusy(true); say("");
     try {
       const response = await fetch(`/api/admin/shops/${draft.id}/images/${imageId}`, { method: "DELETE" });
       const result = await readResult(response, "이미지를 삭제하지 못했습니다.");
-      replaceShop(result.shop as ManagedShop);
-      setMessage("작업 이미지를 삭제했습니다.");
+      applyImageResult(result.shop as ManagedShop);
+      say("작업 이미지를 삭제했습니다.", "success");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "이미지를 삭제하지 못했습니다.");
+      say(error instanceof Error ? error.message : "이미지를 삭제하지 못했습니다.", "error");
+    } finally { setImageBusy(false); }
+  };
+
+  const setCover = async (imageId: string) => {
+    if (!draft || draft.coverImageId === imageId) return;
+    setImageBusy(true); say("");
+    try {
+      const response = await fetch(`/api/admin/shops/${draft.id}/images/${imageId}`, { method: "PATCH" });
+      const result = await readResult(response, "대표 이미지를 바꾸지 못했습니다.");
+      applyImageResult(result.shop as ManagedShop);
+      say("대표 이미지를 바꿨습니다. 마켓 카드와 샵 소개 첫 화면에 이 이미지가 나옵니다.", "success");
+    } catch (error) {
+      say(error instanceof Error ? error.message : "대표 이미지를 바꾸지 못했습니다.", "error");
     } finally { setImageBusy(false); }
   };
 
@@ -243,20 +299,20 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
       + `그래도 지우려면 주문번호를 입력하세요: ${id}`,
     );
     if (typed === null) return;
-    if (typed.trim() !== id) { setMessage("입력한 주문번호가 달라서 지우지 않았습니다."); return; }
-    setOrderBusy(id); setMessage("");
+    if (typed.trim() !== id) { say("입력한 주문번호가 달라서 지우지 않았습니다.", "error"); return; }
+    setOrderBusy(id); say("");
     try {
       const response = await fetch(`/api/control/orders/${encodeURIComponent(id)}?confirm=${encodeURIComponent(id)}`, { method: "DELETE" });
       const result = await readResult(response, "주문을 지우지 못했습니다.");
       setOrders((current) => current.filter((order) => order.id !== id));
-      setMessage(`${id} 삭제됨 · 파일 ${result.filesPurged}/${result.filesTotal}개 정리`);
+      say(`${id} 삭제됨 · 파일 ${result.filesPurged}/${result.filesTotal}개 정리`, "success");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "주문을 지우지 못했습니다.");
+      say(error instanceof Error ? error.message : "주문을 지우지 못했습니다.", "error");
     } finally { setOrderBusy(""); }
   };
 
   const changeOrderStatus = async (id: string, status: Exclude<OrderStatus, "notification_failed">) => {
-    setOrderBusy(id); setMessage("");
+    setOrderBusy(id); say("");
     try {
       const response = await fetch(`/api/admin/orders/${encodeURIComponent(id)}`, {
         method: "PATCH",
@@ -265,9 +321,9 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
       });
       const result = await readResult(response, "주문 상태를 변경하지 못했습니다.");
       setOrders((current) => current.map((order) => order.id === id ? result.order as ManagedOrder : order));
-      setMessage(`${id} 상태를 ${STATUS_LABELS[status]}로 변경했습니다.`);
+      say(`${id} 상태를 ${STATUS_LABELS[status]}로 변경했습니다.`, "success");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "주문 상태를 변경하지 못했습니다.");
+      say(error instanceof Error ? error.message : "주문 상태를 변경하지 못했습니다.", "error");
     } finally { setOrderBusy(""); }
   };
 
@@ -399,13 +455,13 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
                   <label>상세 설명<textarea maxLength={12000} rows={16} value={draft.aboutText} onChange={(e) => setDraft({ ...draft, aboutText: e.target.value })} placeholder={"작업에 대해 자유롭게 설명해 주세요.\n\n예시\n• 어떤 스타일로 작업하는지\n• 신청 전에 준비할 것\n• 수정 가능 범위\n• 작업 진행 순서"}/><small>엔터 한 번은 줄바꿈, 두 번은 문단 나누기로 표시됩니다. {draft.aboutText.length.toLocaleString("ko-KR")}/12,000자</small></label>
                 </div>
                 <div className="portfolio-manager">
-                  <div className="portfolio-manager-head"><div><b>작업 이미지</b><span>첫 번째 이미지가 대표 이미지로 표시됩니다. 최대 10장.</span></div><label className="plain-upload-button">{imageBusy ? "처리 중…" : "이미지 추가"}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple disabled={imageBusy || draft.images.length >= 10} onChange={uploadImages}/></label></div>
+                  <div className="portfolio-manager-head"><div><b>작업 이미지</b><span>대표로 지정한 이미지가 마켓 카드와 샵 소개 첫 화면에 나옵니다. 최대 10장.</span></div><label className="plain-upload-button">{imageBusy ? "처리 중…" : "이미지 추가"}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple disabled={imageBusy || draft.images.length >= 10} onChange={uploadImages}/></label></div>
                   {draft.images.length > 0 ? <div className="portfolio-admin-grid">{draft.images.map((image, index) => (
                     <figure key={image.id}>
                       {/* Images are served from the authenticated shop upload API. */}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={`/api/admin/shops/${draft.id}/images/${image.id}`} alt=""/>
-                      <figcaption><span>{index === 0 ? "대표" : `${index + 1}`}</span><button type="button" disabled={imageBusy} onClick={() => deleteImage(image.id)}>삭제</button></figcaption>
+                      <figcaption>{index === 0 ? <span className="is-cover">대표</span> : <button type="button" className="make-cover" disabled={imageBusy} onClick={() => setCover(image.id)}>대표로</button>}<button type="button" disabled={imageBusy} onClick={() => deleteImage(image.id)}>삭제</button></figcaption>
                     </figure>
                   ))}</div> : <div className="portfolio-empty"><b>아직 등록된 작업 이미지가 없습니다.</b><span>완성작이나 작업 예시를 올리면 설명 페이지와 마켓 카드에 표시됩니다.</span></div>}
                 </div>
@@ -448,7 +504,21 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
                 </div>
               </section>
 
-              <div className="save-bar"><span>{message}</span><button disabled={busy || imageBusy}>{busy ? "저장 중…" : "변경사항 저장"}</button></div>
+              <div className={`save-bar${dirty ? " dirty" : ""}`}>
+                {/* Editing again after a save must not keep reading "저장했습니다".
+                    An unsaved change outranks any older notice; only a failure,
+                    which the manager still has to deal with, outranks that. */}
+                <span className={`save-state ${messageKind === "error" ? "error" : dirty ? "dirty" : message ? messageKind : "clean"}`}>
+                  {messageKind === "error"
+                    ? message
+                    : dirty
+                      ? "저장하지 않은 변경사항이 있습니다."
+                      : message || "모든 변경사항이 저장되었습니다."}
+                </span>
+                <button disabled={busy || imageBusy || !dirty}>
+                  {busy ? "저장 중…" : dirty ? "변경사항 저장" : "저장됨"}
+                </button>
+              </div>
             </form>
           )}
         </section>

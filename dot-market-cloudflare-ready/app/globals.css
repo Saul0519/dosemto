@@ -1320,3 +1320,106 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 
 /* Card badge — sits where 주문 가능 / 준비 중 do, so it matches them. */
 .shop-card-copy .closed { color: var(--coral-ink); }
+
+/* ── 줄바꿈 · 후기 링크 · 자동 넘김 갤러리 · 저장 상태 ──────────────────────
+   Four small features that all touch existing rules, so they live together at
+   the end where the overrides are visible rather than scattered upstream. */
+
+/* Managers type line breaks into the short description; honour them. Written as
+   `.shop-card-copy p.shop-card-desc` because `.shop-card-copy p` is (0,1,1) and
+   would otherwise outrank a bare class — the same reason `.card-rating`'s own
+   margin never applied while it was a <p>. Clamped so one long description
+   cannot stretch every card sharing its grid row. */
+.shop-card-copy p.shop-card-desc {
+  white-space: pre-line;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.service-short-copy.multiline { white-space: pre-line; }
+
+/* The card is an <article> now, so the title link is stretched over the whole
+   tile. The rating sits above that layer and keeps its own destination. */
+.shop-card { position: relative; }
+.shop-card-open { color: inherit; text-decoration: none; }
+.shop-card-open::after { content: ""; position: absolute; inset: 0; }
+.shop-card-copy .card-rating { position: relative; z-index: 1; width: fit-content; }
+
+/* Nothing in this stylesheet underlines links by default, so a rating that is
+   suddenly clickable needs to say so. */
+.card-rating, .service-rating { text-decoration: none; cursor: pointer; }
+.card-rating em, .service-rating em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--line-2);
+}
+.card-rating:hover em, .service-rating:hover em { color: var(--ink); border-bottom-color: var(--ink); }
+.card-rating:focus-visible, .service-rating:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+/* The sticky topbar is 66px plus its rule, and the section's own padding floors
+   at 64px on narrow screens — without this the heading lands under the bar. */
+#reviews { scroll-margin-top: 84px; }
+
+/* Gallery frames are stacked and cross-faded, so they need taking out of flow. */
+.service-main-image img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity .55s ease;
+}
+.service-main-image img.active { opacity: 1; }
+.gallery-play {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(22, 21, 26, .72);
+  color: var(--ink-invert);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .18s ease;
+}
+.service-gallery:hover .gallery-play, .gallery-play:focus-visible { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .service-main-image img { transition: none; }
+}
+/* Coarse pointers never hover, so the control has to be there from the start. */
+@media (hover: none) {
+  .gallery-play { opacity: 1; }
+}
+
+/* Saving. The old bar printed failures in the success colour and gave no sign
+   that anything was waiting to be saved. */
+.save-bar.dirty { border-color: var(--coral); background: #fff7f5; }
+.save-bar .save-state { font-size: 12px; }
+.save-bar .save-state.clean { color: var(--ink-3); }
+.save-bar .save-state.dirty { color: var(--coral-ink); font-weight: 700; }
+.save-bar .save-state.success { color: var(--sage-ink); font-weight: 700; }
+.save-bar .save-state.error { color: var(--danger-ink); font-weight: 700; }
+.save-bar .save-state.info { color: var(--ink-2); }
+.save-bar button:disabled { background: var(--line-2); color: var(--ink-3); cursor: default; }
+
+.control-shop-foot { display: flex; align-items: center; gap: 12px; }
+.control-shop-foot .control-save-state { color: var(--ink-3); font-size: 11px; }
+.control-shop-foot.dirty .control-save-state { color: var(--coral-ink); font-weight: 700; }
+.control-shop-foot .control-shop-actions { margin-left: auto; }
+.control-shop-foot.dirty { padding: 8px 10px; margin: -8px -10px; border-radius: 8px; background: #fff7f5; }
+.control-message.error { background: var(--danger-ink); }
+
+/* The chosen cover is a state, not an action; only the others get a button.
+   Both sit in a figcaption whose buttons are styled as destructive by default. */
+.portfolio-admin-grid figcaption .is-cover { color: var(--ink); font-weight: 700; }
+.portfolio-admin-grid figcaption button.make-cover { color: var(--ink-3); }
+.portfolio-admin-grid figcaption button.make-cover:hover { color: var(--ink); }

@@ -1,5 +1,5 @@
 import { getChatGPTUser } from "../../../../../../chatgpt-auth";
-import { getShopForManager, getShopImageObjectKey, removeShopImage } from "../../../../../../../db/shops";
+import { getShopForManager, getShopImageObjectKey, removeShopImage, setShopCoverImage } from "../../../../../../../db/shops";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +20,22 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     "etag": object.httpEtag,
     "x-content-type-options": "nosniff",
   }});
+}
+
+/** Makes this image the one the market card and the gallery open with. */
+export async function PATCH(_request: Request, context: { params: Promise<{ id: string; imageId: string }> }) {
+  const user = await getChatGPTUser();
+  if (!user) return Response.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 });
+  const { id, imageId } = await context.params;
+  if (!(await getShopForManager(id, user.email))) {
+    return Response.json({ error: "이 샵을 관리할 권한이 없습니다." }, { status: 403 });
+  }
+  // setShopCoverImage checks the image belongs to this shop, so one manager
+  // cannot point their cover at another shop's upload.
+  if (!(await setShopCoverImage(id, imageId))) {
+    return Response.json({ error: "이미지를 찾지 못했습니다." }, { status: 404 });
+  }
+  return Response.json({ ok: true, shop: await getShopForManager(id, user.email) });
 }
 
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string; imageId: string }> }) {

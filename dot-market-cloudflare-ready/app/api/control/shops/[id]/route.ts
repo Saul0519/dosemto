@@ -73,6 +73,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       name: removed.name,
       slug: removed.slug,
       orderCount: removed.orderCount,
+      reviewCount: removed.reviewCount,
       imageCount: removed.imageCount,
       filesPurged: purged,
       filesTotal: removed.objectKeys.length,

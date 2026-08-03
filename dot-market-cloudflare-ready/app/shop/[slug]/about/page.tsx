@@ -20,7 +20,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!shop) return { title: "샵을 찾을 수 없습니다" };
   return {
     title: shop.name,
-    description: shop.description || SITE.description,
+    // Collapsed: a description may hold the line breaks a manager typed,
+    // which mean nothing inside a meta attribute.
+    description: shop.description.replace(/\s+/g, " ").trim() || SITE.description,
   };
 }
 
@@ -72,14 +74,15 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
             <h1>{shop.aboutTitle || `${shop.name} 도안 주문`}</h1>
             <p className="service-by">by {shop.name}</p>
             {rating.count > 0 && (
-              <p className="service-rating">
+              <a className="service-rating" href="#reviews">
                 <b aria-hidden="true">{"★".repeat(Math.round(rating.average))}<i>{"★".repeat(5 - Math.round(rating.average))}</i></b>
                 <strong>{rating.average.toFixed(1)}</strong>
                 <span>({rating.count})</span>
                 <small>완료 주문 {rating.completedOrders}건</small>
-              </p>
+                <em>후기 보기</em>
+              </a>
             )}
-            <p className="service-short-copy">
+            <p className="service-short-copy multiline">
               {shop.description || "올린 이미지를 화가 이젤 팔레트로 바꿔 32×32 캔버스 단위로 잘라 드립니다."}
             </p>
             <dl>
