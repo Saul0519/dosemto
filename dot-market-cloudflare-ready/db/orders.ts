@@ -221,3 +221,65 @@ export async function getOrderFileForManager(id: string, email: string, kind: "p
   };
 }
 
+
+export type MyOrder = {
+  id: string;
+  shopName: string;
+  shopSlug: string;
+  gridX: number;
+  gridY: number;
+  tileCount: number;
+  deadline: number;
+  totalPrice: number;
+  cropLabel: string;
+  originalFilename: string;
+  status: OrderStatus;
+  createdAt: string;
+};
+
+/** The customer's own order history, keyed on their Discord snowflake. */
+export async function listOrdersForUser(discordId: string): Promise<MyOrder[]> {
+  await ensureOrdersTable();
+  const db = await getD1();
+  const rows = await db.prepare(
+    `SELECT o.id, s.name AS shop_name, s.slug AS shop_slug, o.grid_x, o.grid_y,
+            o.tile_count, o.deadline, o.total_price, o.crop_label,
+            o.original_filename, o.status, o.created_at
+       FROM orders o JOIN shops s ON s.id = o.shop_id
+      WHERE o.player_uuid = ? ORDER BY o.created_at DESC LIMIT 100`,
+  ).bind(discordId).all<{
+    id: string; shop_name: string; shop_slug: string; grid_x: number; grid_y: number;
+    tile_count: number; deadline: number; total_price: number; crop_label: string;
+    original_filename: string; status: OrderStatus; created_at: string;
+  }>().catch(() => ({ results: [] }));
+  return rows.results.map((row) => ({
+    id: row.id,
+    shopName: row.shop_name,
+    shopSlug: row.shop_slug,
+    gridX: row.grid_x,
+    gridY: row.grid_y,
+    tileCount: row.tile_count,
+    deadline: row.deadline,
+    totalPrice: row.total_price,
+    cropLabel: row.crop_label,
+    originalFilename: row.original_filename,
+    status: row.status,
+    createdAt: row.created_at,
+  }));
+}
+
+/** The converted pattern for one of the caller's own orders. */
+export async function getOwnOrderPreview(orderId: string, discordId: string) {
+  await ensureOrdersTable();
+  const row = await getD1().then((db) => db.prepare(
+    "SELECT preview_object_key, preview_content_type, grid_x, grid_y FROM orders WHERE id = ? AND player_uuid = ?",
+  ).bind(orderId, discordId).first<{
+    preview_object_key: string; preview_content_type: string; grid_x: number; grid_y: number;
+  }>()).catch(() => null);
+  if (!row) return null;
+  return {
+    objectKey: row.preview_object_key,
+    contentType: row.preview_content_type,
+    filename: `DOT_ORDER_${orderId}_${row.grid_x}x${row.grid_y}.png`,
+  };
+}

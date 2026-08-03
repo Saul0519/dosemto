@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listPublicShops } from "../db/shops";
+import { getShopRating } from "../db/reviews";
 import AccountChip from "./account-chip";
 import { getUser } from "./session";
 import { DOSE_DISPLAY_FAMILIES } from "./dose-palette";
@@ -25,6 +26,9 @@ export default async function Home() {
     listPublicShops().catch(() => []),
     getUser().catch(() => null),
   ]);
+  const ratings = new Map(await Promise.all(shops.map(async (shop) =>
+    [shop.id, await getShopRating(shop.id).catch(() => null)] as const,
+  )));
 
   return (
     <div className="market-page">
@@ -146,6 +150,13 @@ export default async function Home() {
                       </span>
                     </div>
                     <h3>{shop.name}</h3>
+                    {(ratings.get(shop.id)?.count ?? 0) > 0 && (
+                      <p className="card-rating">
+                        <b aria-hidden="true">{"★".repeat(Math.round(ratings.get(shop.id)!.average))}<i>{"★".repeat(5 - Math.round(ratings.get(shop.id)!.average))}</i></b>
+                        <strong>{ratings.get(shop.id)!.average.toFixed(1)}</strong>
+                        <span>({ratings.get(shop.id)!.count})</span>
+                      </p>
+                    )}
                     <p>{shop.description || "32×32 캔버스 도안을 만드는 샵입니다."}</p>
                     <b>
                       장당 {won(shop.pricing.tilePrice)}부터

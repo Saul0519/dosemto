@@ -1,4 +1,4 @@
-import { consumeAction, hashToken } from "../../../../db/order-actions";
+import { consumeAction } from "../../../../db/order-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -25,11 +25,11 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     return Response.json({ error: "이미 사용했거나 쓸 수 없는 링크입니다." }, { status: 409 });
   }
 
-  // Only a finished order has a review link to hand over.
-  let reviewUrl: string | null = null;
-  if (result.action === "complete") {
-    reviewUrl = await reviewLinkFor(result.orderId, new URL(request.url).origin);
-  }
+  // Only a finished order has a review link to hand over. The page checks that
+  // the visitor owns the order, so the number alone is safe to share.
+  const reviewUrl = result.action === "complete"
+    ? `${new URL(request.url).origin}/review/${result.orderId}`
+    : null;
 
   await editNotification(result.orderId, result.action, result.shopId).catch(() => undefined);
 
@@ -40,22 +40,6 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     statusLabel: STATUS_LABELS[result.status] ?? result.status,
     reviewUrl,
   });
-}
-
-/**
- * The plaintext review token is never stored, so it cannot be read back out.
- * Rotate to a fresh one at hand-over time and keep only its hash.
- */
-async function reviewLinkFor(orderId: string, origin: string) {
-  const { env } = await import("cloudflare:workers");
-  if (!env.DB) return null;
-  const { randomToken } = await import("../../../../db/order-actions");
-  const token = randomToken();
-  const updated = await env.DB.prepare(
-    "UPDATE review_tokens SET token_hash = ? WHERE order_id = ? AND used_at IS NULL",
-  ).bind(await hashToken(token), orderId).run().catch(() => null);
-  if (!updated?.meta.changes) return null;
-  return `${origin}/review/${token}`;
 }
 
 /** Marks the original Discord notification so the channel shows what happened. */

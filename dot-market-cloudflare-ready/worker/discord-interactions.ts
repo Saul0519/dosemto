@@ -207,7 +207,9 @@ async function applyAction(input: {
   }
 
   if (action === "complete") {
-    const reviewUrl = await mintReviewLink(env, orderId, origin);
+    // The review page is keyed on the order number and checks ownership, so no
+    // one-shot token is needed any more.
+    const reviewUrl = `${origin}/review/${orderId}`;
     dm = {
       content: `**${order.shop_name}**에서 그림을 완성했습니다. 게임에서 받아가세요.`,
       embeds: [{
@@ -258,25 +260,4 @@ async function sendDm(
     body: JSON.stringify(payload),
   }).catch(() => null);
   return Boolean(sent?.ok);
-}
-
-/**
- * Unlocks the review and rotates its token, mirroring what the web action page
- * does. Only the hash is stored, so the plaintext has to be minted here.
- */
-async function mintReviewLink(env: Env, orderId: string, origin: string) {
-  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
-  let token = "";
-  for (const byte of bytes) token += alphabet[byte % alphabet.length];
-
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
-  const hash = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
-
-  const updated = await env.DB.prepare(
-    `UPDATE review_tokens SET token_hash = ?, unlocked_at = COALESCE(unlocked_at, CURRENT_TIMESTAMP)
-      WHERE order_id = ? AND used_at IS NULL`,
-  ).bind(hash, orderId).run().catch(() => null);
-  if (!updated?.meta.changes) return null;
-  return `${origin}/review/${token}`;
 }

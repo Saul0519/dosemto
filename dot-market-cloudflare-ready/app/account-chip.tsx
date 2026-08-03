@@ -18,7 +18,7 @@ export default function AccountChip({ userName, next }: {
 
   return (
     <div className="account-chip is-in">
-      <span title={userName}>{userName}</span>
+      <a href="/me" title={userName}>{userName}</a>
       <form action={`/api/discord/logout?next=${encodeURIComponent(next)}`} method="post">
         <button type="submit">로그아웃</button>
       </form>

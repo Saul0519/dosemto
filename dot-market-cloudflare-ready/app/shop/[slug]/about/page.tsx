@@ -68,8 +68,10 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
             <p className="service-by">by {shop.name}</p>
             {rating.count > 0 && (
               <p className="service-rating">
-                <b>★ {rating.average.toFixed(1)}</b>
-                <span>후기 {rating.count}건 · 완료 주문 {rating.completedOrders}건</span>
+                <b aria-hidden="true">{"★".repeat(Math.round(rating.average))}<i>{"★".repeat(5 - Math.round(rating.average))}</i></b>
+                <strong>{rating.average.toFixed(1)}</strong>
+                <span>({rating.count})</span>
+                <small>완료 주문 {rating.completedOrders}건</small>
               </p>
             )}
             <p className="service-short-copy">
