@@ -11,13 +11,14 @@ export default function LoginForm({ next }: { next: string }) {
     <div className="login-actions">
       <label className="remember-row">
         <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)}/>
-        <span>30일 동안 로그인 유지</span>
+        <span>로그인 유지</span>
       </label>
       <a className="btn btn-solid" href={href}>
         디스코드로 로그인 <span className="arrow" aria-hidden="true">→</span>
       </a>
       <p className="action-note">
-        체크를 풀면 브라우저를 닫을 때 로그아웃됩니다. 공용 PC라면 풀어두세요.
+        체크하면 로그아웃하기 전까지 유지됩니다(최대 30일). 풀면 브라우저를 닫을 때 로그아웃되니,
+        공용 PC에서는 풀어두세요.
       </p>
     </div>
   );

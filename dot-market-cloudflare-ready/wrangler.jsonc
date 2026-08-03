@@ -42,8 +42,12 @@
   "vars": {
     "SUPER_ADMIN_EMAIL": "sihyung0519@gmail.com",
     "TURNSTILE_SITE_KEY": "0x4AAAAAAEC_4kj8JOBejss_",
-    // Public half of the Mc-Auth credentials; it is visible in the login URL.
-    // The matching MC_AUTH_CLIENT_SECRET must be set as a Secret.
-    "MC_AUTH_CLIENT_ID": "3955111840157009112"
+    // Discord application id, which doubles as the OAuth2 client id. Public —
+    // it travels in the login URL. The matching DISCORD_CLIENT_SECRET and the
+    // bot token are Secrets.
+    "DISCORD_CLIENT_ID": "1533736191860408351",
+    // Used to check the Ed25519 signature Discord puts on every interaction it
+    // sends us. Public by design: it verifies, it does not sign.
+    "DISCORD_PUBLIC_KEY": "9e560802746ad566518bc8302a350ff472ce825ae98537d10e6bfceecb5b7904"
   }
 }
