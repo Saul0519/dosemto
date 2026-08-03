@@ -17,9 +17,15 @@ const USER_URL = "https://discord.com/api/users/@me";
 type TokenResponse = { access_token?: string };
 type UserResponse = { id?: string; username?: string; global_name?: string | null };
 
+/**
+ * Failures go back to /login, not to wherever the visitor came from. The
+ * destination page has nowhere to show the reason, so sending them there just
+ * looks like the login silently did nothing.
+ */
 function back(origin: string, next: string, error: string) {
-  const target = new URL(`${origin}${next}`);
+  const target = new URL(`${origin}/login`);
   target.searchParams.set("login", error);
+  if (next !== "/") target.searchParams.set("next", next);
   return Response.redirect(target.toString(), 302);
 }
 
@@ -52,7 +58,16 @@ export async function GET(request: Request) {
         redirect_uri: `${url.origin}/api/discord/callback`,
       }),
     });
-    if (!tokenResponse.ok) return back(url.origin, next, "exchange");
+    if (!tokenResponse.ok) {
+      // Discord names the cause (invalid_client, invalid_grant, ...); passing it
+      // through turns a dead end into something actionable.
+      const detail = await tokenResponse.text().catch(() => "");
+      const reason = /invalid_client/.test(detail) ? "badsecret"
+        : /redirect_uri/.test(detail) ? "badredirect"
+        : /invalid_grant/.test(detail) ? "badcode"
+        : "exchange";
+      return back(url.origin, next, reason);
+    }
     const token = await tokenResponse.json() as TokenResponse;
     if (!token.access_token) return back(url.origin, next, "exchange");
 
