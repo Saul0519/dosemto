@@ -1224,3 +1224,26 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
   .my-orders li { grid-template-columns: 1fr; gap: 14px; }
   .my-order-art { max-width: 220px; }
 }
+
+/* owner-only moderation */
+.moderation-list { display: grid; gap: 10px; }
+.moderation-list article { padding: 16px 18px; border: 1px solid var(--line-2); background: var(--card); display: grid; gap: 8px; }
+.moderation-list article.hidden-review { opacity: .6; border-style: dashed; }
+.moderation-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }
+.moderation-head b { color: var(--coral); font-size: 13px; letter-spacing: .06em; }
+.moderation-head b i { color: var(--line-3); font-style: normal; }
+.moderation-head > span { font-size: 13px; font-weight: 600; }
+.moderation-head > small { color: var(--ink-3); font-size: 11px; }
+.moderation-head code { margin-left: auto; color: var(--ink-3); font-family: var(--font-mono); font-size: 11px; }
+.moderation-head em { padding: 2px 7px; background: var(--paper-deep); color: var(--ink-2); font-size: 10px; font-style: normal; font-weight: 700; }
+.moderation-list p { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.75; }
+.moderation-actions { display: flex; gap: 8px; }
+.moderation-actions button { padding: 7px 12px; border: 1px solid var(--line-2); background: var(--paper); font-size: 11px; font-weight: 700; cursor: pointer; }
+.moderation-actions button:hover { border-color: var(--ink); }
+.moderation-actions button.danger { color: var(--danger-ink); }
+.moderation-actions button.danger:hover { border-color: var(--danger-ink); background: var(--danger-soft); }
+
+.order-history-card > footer button.purge-order { padding: 7px 10px; border: 1px solid var(--line-2); background: var(--paper); color: var(--danger-ink); font-size: 11px; font-weight: 600; cursor: pointer; }
+.order-history-card > footer button.purge-order:hover { border-color: var(--danger-ink); background: var(--danger-soft); }
+
+.hidden-note { margin: 10px 0 0; color: var(--ink-3); font-size: 12px; }

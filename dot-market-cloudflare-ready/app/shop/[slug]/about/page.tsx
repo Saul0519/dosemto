@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPublicShop } from "../../../../db/shops";
-import { getShopRating, listShopReviews } from "../../../../db/reviews";
+import { countHiddenReviews, getShopRating, listShopReviews } from "../../../../db/reviews";
 import { SHOP_PAGE, SITE } from "../../../site-content";
 import AccountChip from "../../../account-chip";
 import { getUser } from "../../../session";
@@ -28,9 +28,10 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
   if (!shop) notFound();
 
   const user = await getUser().catch(() => null);
-  const [rating, reviews] = await Promise.all([
+  const [rating, reviews, hiddenCount] = await Promise.all([
     getShopRating(shop.id).catch(() => ({ average: 0, count: 0, completedOrders: 0 })),
     listShopReviews(shop.id).catch(() => []),
+    countHiddenReviews(shop.id).catch(() => 0),
   ]);
 
   // A blank line starts a new paragraph; a single Enter stays a line break
@@ -126,6 +127,11 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
                   ? `이 샵에서 마감된 주문 ${rating.completedOrders}건 중 ${rating.count}건에 후기가 달렸습니다. 후기는 주문한 사람에게만 발급되는 일회용 링크로 작성됩니다.`
                   : "아직 후기가 없습니다. 작업이 마감되면 주문한 분께 후기 링크가 전달됩니다."}
               </p>
+              {hiddenCount > 0 && (
+                <p className="hidden-note">
+                  사이트 운영자가 숨긴 후기 {hiddenCount}건이 있습니다. 숨겨도 이 숫자는 남습니다.
+                </p>
+              )}
             </div>
             {reviews.length > 0 && (
               <ul className="review-list">

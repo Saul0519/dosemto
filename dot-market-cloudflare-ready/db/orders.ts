@@ -283,3 +283,30 @@ export async function getOwnOrderPreview(orderId: string, discordId: string) {
     filename: `DOT_ORDER_${orderId}_${row.grid_x}x${row.grid_y}.png`,
   };
 }
+
+/**
+ * Removes one order and everything hanging off it. Owner only — a shop must not
+ * be able to erase an order it does not like the look of.
+ * Returns the R2 keys so the caller can purge the files too.
+ */
+export async function deleteOrderCascade(orderId: string) {
+  await ensureOrdersTable();
+  const db = await getD1();
+
+  const row = await db.prepare(
+    "SELECT id, preview_object_key, original_object_key FROM orders WHERE id = ?",
+  ).bind(orderId).first<{
+    id: string; preview_object_key: string; original_object_key: string | null;
+  }>().catch(() => null);
+  if (!row) return null;
+
+  await db.prepare("DELETE FROM orders WHERE id = ?").bind(orderId).run();
+  // Child rows may predate their tables on an old database; missing is fine.
+  await db.prepare("DELETE FROM reviews WHERE order_id = ?").bind(orderId).run().catch(() => undefined);
+  await db.prepare("DELETE FROM order_actions WHERE order_id = ?").bind(orderId).run().catch(() => undefined);
+  await db.prepare("DELETE FROM review_tokens WHERE order_id = ?").bind(orderId).run().catch(() => undefined);
+
+  return {
+    objectKeys: [row.preview_object_key, row.original_object_key].filter((key): key is string => Boolean(key)),
+  };
+}

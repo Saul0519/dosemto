@@ -219,3 +219,67 @@ export async function getShopRating(shopId: string): Promise<ShopRating> {
     completedOrders: orders?.count ?? 0,
   };
 }
+
+/**
+ * Moderation, for the site owner only.
+ *
+ * Hiding is the everyday tool: it is reversible and the shop page keeps showing
+ * how many are hidden, so quietly burying criticism is visible rather than
+ * silent. Purging exists for the cases where the content itself has to go —
+ * personal information, say — and leaves nothing behind.
+ */
+export async function setReviewHidden(orderId: string, hidden: boolean): Promise<Outcome> {
+  await ensureReviewsTable();
+  const db = await getD1();
+  const changed = await db.prepare(
+    "UPDATE reviews SET status = ? WHERE order_id = ?",
+  ).bind(hidden ? "hidden" : "visible", orderId).run().catch(() => null);
+  if (!changed?.meta.changes) return { ok: false, error: "그 주문의 후기를 찾지 못했습니다.", status: 404 };
+  return { ok: true };
+}
+
+export async function purgeReview(orderId: string): Promise<Outcome> {
+  await ensureReviewsTable();
+  const db = await getD1();
+  const removed = await db.prepare("DELETE FROM reviews WHERE order_id = ?")
+    .bind(orderId).run().catch(() => null);
+  if (!removed?.meta.changes) return { ok: false, error: "그 주문의 후기를 찾지 못했습니다.", status: 404 };
+  return { ok: true };
+}
+
+export type ModeratedReview = Review & { shopName: string; hidden: boolean };
+
+/** Every review across every shop, hidden ones included. Owner view. */
+export async function listAllReviews(limit = 100): Promise<ModeratedReview[]> {
+  await ensureReviewsTable();
+  const db = await getD1();
+  const rows = await db.prepare(
+    `SELECT r.id, r.order_id, r.rating, r.body, r.display_name, r.created_at,
+            r.updated_at, r.status, s.name AS shop_name
+       FROM reviews r JOIN shops s ON s.id = r.shop_id
+      ORDER BY r.created_at DESC LIMIT ?`,
+  ).bind(limit).all<{
+    id: string; order_id: string; rating: number; body: string; display_name: string;
+    created_at: string; updated_at: string | null; status: string; shop_name: string;
+  }>().catch(() => ({ results: [] }));
+  return rows.results.map((row) => ({
+    id: row.id,
+    orderId: row.order_id,
+    rating: row.rating,
+    body: row.body,
+    displayName: row.display_name,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at ?? row.created_at,
+    shopName: row.shop_name,
+    hidden: row.status !== "visible",
+  }));
+}
+
+/** How many of a shop's reviews the owner has hidden. Shown publicly. */
+export async function countHiddenReviews(shopId: string) {
+  await ensureReviewsTable();
+  const row = await getD1().then((db) => db.prepare(
+    "SELECT COUNT(*) AS count FROM reviews WHERE shop_id = ? AND status != 'visible'",
+  ).bind(shopId).first<{ count: number }>()).catch(() => null);
+  return row?.count ?? 0;
+}

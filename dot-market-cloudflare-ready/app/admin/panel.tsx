@@ -210,6 +210,28 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
     } finally { setImageBusy(false); }
   };
 
+  const purgeOrder = async (id: string) => {
+    const typed = window.prompt(
+      `주문 ${id}을(를) 완전히 삭제합니다.
+`
+      + `후기와 저장된 도안·원본 파일까지 함께 지워지고 되돌릴 수 없습니다.
+
+`
+      + `그래도 지우려면 주문번호를 입력하세요: ${id}`,
+    );
+    if (typed === null) return;
+    if (typed.trim() !== id) { setMessage("입력한 주문번호가 달라서 지우지 않았습니다."); return; }
+    setOrderBusy(id); setMessage("");
+    try {
+      const response = await fetch(`/api/control/orders/${encodeURIComponent(id)}?confirm=${encodeURIComponent(id)}`, { method: "DELETE" });
+      const result = await readResult(response, "주문을 지우지 못했습니다.");
+      setOrders((current) => current.filter((order) => order.id !== id));
+      setMessage(`${id} 삭제됨 · 파일 ${result.filesPurged}/${result.filesTotal}개 정리`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "주문을 지우지 못했습니다.");
+    } finally { setOrderBusy(""); }
+  };
+
   const changeOrderStatus = async (id: string, status: Exclude<OrderStatus, "notification_failed">) => {
     setOrderBusy(id); setMessage("");
     try {
@@ -288,7 +310,7 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
                   </dl>
                   <footer>
                     <span className={order.webhookSent ? "sent" : "failed"}>{order.webhookSent ? "Discord 알림 전송됨" : "Discord 알림 실패"}</span>
-                    <div><a href={`/api/admin/orders/${encodeURIComponent(order.id)}/files/preview`}>변환 도안 받기</a>{order.hasOriginal && <a href={`/api/admin/orders/${encodeURIComponent(order.id)}/files/original`}>원본 받기</a>}</div>
+                    <div><a href={`/api/admin/orders/${encodeURIComponent(order.id)}/files/preview`}>변환 도안 받기</a>{order.hasOriginal && <a href={`/api/admin/orders/${encodeURIComponent(order.id)}/files/original`}>원본 받기</a>}{isSuperAdmin && <button type="button" className="purge-order" onClick={() => purgeOrder(order.id)} disabled={orderBusy === order.id}>주문 삭제</button>}</div>
                   </footer>
                 </article>
               ))}</div>}
