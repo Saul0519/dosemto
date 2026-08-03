@@ -11,6 +11,7 @@ type ShopRow = {
   webhook_ciphertext: string | null;
   webhook_iv: string | null;
   channel_id: string | null;
+  guild_id: string | null;
   tile_price: number;
   day_1_multiplier: number;
   day_2_multiplier: number;
@@ -55,6 +56,8 @@ export type PublicShop = {
   webhookConfigured: boolean;
   /** Discord channel the bot posts order notifications to. */
   channelId: string | null;
+  /** Server the bot was invited to for this shop. */
+  guildId: string | null;
 };
 
 export type ManagedShop = PublicShop & {
@@ -128,6 +131,7 @@ async function ensureShopsTable() {
 
   // Added when order notifications moved from webhooks to the bot.
   await db.prepare("ALTER TABLE shops ADD COLUMN channel_id TEXT").run().catch(() => undefined);
+  await db.prepare("ALTER TABLE shops ADD COLUMN guild_id TEXT").run().catch(() => undefined);
 
   const owner = await superAdminEmail();
   if (owner) {
@@ -144,7 +148,7 @@ async function ensureShopsTable() {
 }
 
 const selectColumns = `id, slug, name, description, about_title, about_text, manager_email,
-  webhook_ciphertext, webhook_iv, channel_id, tile_price,
+  webhook_ciphertext, webhook_iv, channel_id, guild_id, tile_price,
   day_1_multiplier, day_2_multiplier, day_3_multiplier, day_4_multiplier,
   day_5_multiplier, day_6_multiplier, day_7_multiplier,
   active, created_at, updated_at`;
@@ -194,6 +198,7 @@ function toManagedShop(row: ShopRow, images: ShopImage[] = []): ManagedShop {
     managerEmail: row.manager_email,
     pricing: rowPricing(row),
     channelId: row.channel_id,
+    guildId: row.guild_id,
     // Orders go out through the bot now, so a channel is what makes a shop
     // reachable. The name is kept so existing callers keep working.
     webhookConfigured: Boolean(row.channel_id),
@@ -445,4 +450,13 @@ export async function updateShopControl(id: string, input: {
   await getD1().then((db) => db.prepare(`UPDATE shops SET
     manager_email = ?, active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
   ).bind(input.managerEmail.toLowerCase(), input.active ? 1 : 0, id).run());
+}
+
+/** Records the server a shop's manager just invited the bot to. */
+export async function setShopGuild(id: string, guildId: string) {
+  await ensureShopsTable();
+  await getD1().then((db) =>
+    db.prepare("UPDATE shops SET guild_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+      .bind(guildId, id).run(),
+  );
 }

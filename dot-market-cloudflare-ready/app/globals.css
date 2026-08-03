@@ -1178,3 +1178,8 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 
 /* Required fan-content notice. Quiet, but present on every public page. */
 .site-disclaimer { flex-basis: 100%; margin: 0; color: var(--ink-3); font-size: 11px; line-height: 1.6; }
+
+.invite-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.invite-row .plain-upload-button { text-decoration: none; }
+.settings-card select { width: 100%; margin-top: 6px; padding: 10px; border: 1px solid var(--line-2); background: var(--paper); outline: none; }
+.settings-card select:focus { border-color: var(--ink); }

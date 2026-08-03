@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 type Pricing = { tilePrice: number; deadlineMultipliers: Record<string, number> };
@@ -17,6 +17,7 @@ type ManagedShop = {
   pricing: Pricing;
   webhookConfigured: boolean;
   channelId: string | null;
+  guildId: string | null;
   active: boolean;
 };
 
@@ -94,6 +95,9 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
   const [draft, setDraft] = useState<ManagedShop | null>(initialShops[0] ?? null);
   const [channelId, setChannelId] = useState("");
   const [removeChannel, setRemoveChannel] = useState(false);
+  const [channels, setChannels] = useState<{ id: string; name: string }[]>([]);
+  const [needsInvite, setNeedsInvite] = useState(false);
+  const [channelsBusy, setChannelsBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [imageBusy, setImageBusy] = useState(false);
@@ -101,6 +105,34 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
   const [dashboardMode, setDashboardMode] = useState<"orders" | "settings">("orders");
   const [orderBusy, setOrderBusy] = useState("");
   const visibleOrders = useMemo(() => orders.filter((order) => order.shopId === selectedId), [orders, selectedId]);
+
+  // The list comes from Discord, so it can only be fetched once the bot is in
+  // the manager's server. Re-runs whenever the selected shop changes.
+  const loadChannels = useCallback(async (shopId: string, showBusy = false) => {
+    if (!shopId) return;
+    // Only the manual refresh flips the busy flag. Doing it on mount would be a
+    // synchronous setState inside the effect, which cascades a render.
+    if (showBusy) setChannelsBusy(true);
+    try {
+      const response = await fetch(`/api/admin/shops/${shopId}/channels`);
+      const text = await response.text();
+      const result = text ? JSON.parse(text) : {};
+      if (!response.ok) throw new Error(result.error || "채널 목록을 불러오지 못했습니다.");
+      setChannels(result.channels ?? []);
+      setNeedsInvite(Boolean(result.needsInvite));
+    } catch {
+      setChannels([]);
+      setNeedsInvite(true);
+    } finally {
+      setChannelsBusy(false);
+    }
+  }, []);
+
+  // Fetching the channel list on mount is the point of this effect; every
+  // setState inside loadChannels happens after the request resolves, which the
+  // lint rule cannot see through the async boundary.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void loadChannels(selectedId); }, [selectedId, loadChannels]);
 
   const replaceShop = (next: ManagedShop) => {
     setShops((current) => current.map((shop) => shop.id === next.id ? next : shop));
@@ -302,8 +334,24 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
 
               <section className="settings-card">
                 <div className="settings-section-head"><span>04</span><div><h3>디스코드 주문 알림</h3><p>새 주문 알림을 받을 채널의 ID를 입력합니다. 봇이 그 채널에 글을 쓸 수 있어야 합니다.</p></div><i className={draft.webhookConfigured ? "connected" : "not-connected"}>{draft.webhookConfigured ? "연결됨" : "연결 필요"}</i></div>
-                <p className="field-help">비워 두면 기존 채널을 유지합니다. 봇이 그 서버에 초대돼 있고 해당 채널에 <b>메시지 보내기</b>·<b>링크 첨부</b>·<b>파일 첨부</b> 권한이 있어야 알림이 갑니다.</p>
-                <label>알림 채널 ID<input inputMode="numeric" autoComplete="off" value={channelId} onChange={(e) => { setChannelId(e.target.value); setRemoveChannel(false); }} placeholder={draft.channelId ?? "예: 1234567890123456789"}/><small>디스코드 설정 → 고급 → 개발자 모드를 켠 뒤, 채널을 우클릭하고 &quot;채널 ID 복사&quot;를 누르세요.</small></label>
+                <p className="field-help">봇을 서버에 초대하면 아래에서 채널을 고를 수 있습니다. 봇은 글을 쓰기만 하고 대화 내용은 읽지 않습니다.</p>
+                <p className="invite-row">
+                  <a className="plain-upload-button" href={`/api/discord/invite?shop=${draft.id}`}>
+                    {draft.guildId ? "다른 서버로 다시 초대" : "봇 초대하기"}
+                  </a>
+                  {draft.guildId && <button type="button" className="plain-upload-button" onClick={() => void loadChannels(draft.id, true)} disabled={channelsBusy}>{channelsBusy ? "불러오는 중…" : "채널 목록 새로고침"}</button>}
+                </p>
+                {channels.length > 0 ? (
+                  <label>알림 채널
+                    <select value={channelId || draft.channelId || ""} onChange={(e) => { setChannelId(e.target.value); setRemoveChannel(false); }}>
+                      <option value="">고르지 않음</option>
+                      {channels.map((channel) => <option value={channel.id} key={channel.id}>#{channel.name}</option>)}
+                    </select>
+                    <small>{draft.channelId ? "지금 저장된 채널이 선택돼 있습니다." : "새 주문 알림이 올라갈 채널을 고르세요."}</small>
+                  </label>
+                ) : (
+                  <label>알림 채널 ID<input inputMode="numeric" autoComplete="off" value={channelId} onChange={(e) => { setChannelId(e.target.value); setRemoveChannel(false); }} placeholder={draft.channelId ?? "봇을 초대하면 목록에서 고를 수 있습니다"}/><small>{needsInvite ? "봇이 아직 서버에 없습니다. 위의 초대 버튼을 눌러주세요. 직접 채널 ID를 붙여넣어도 됩니다." : "채널 목록을 불러오는 중입니다."}</small></label>
+                )}
                 {draft.webhookConfigured && <label className="check-row"><input type="checkbox" checked={removeChannel} onChange={(e) => { setRemoveChannel(e.target.checked); if (e.target.checked) setChannelId(""); }}/><span>알림 채널 연결 해제 (주문 접수 중단)</span></label>}
               </section>
 
