@@ -1,4 +1,4 @@
-import { currentPlayer } from "../../../../db/mc-session";
+import { currentUser } from "../../../../db/discord-session";
 import { submitReview } from "../../../../db/reviews";
 
 export const dynamic = "force-dynamic";
@@ -6,12 +6,12 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
   const { token } = await context.params;
 
-  // The name shown on a review is the Minecraft account that wrote it, so the
-  // session is what supplies it — a client-sent name could impersonate anyone.
-  const player = await currentPlayer(request).catch(() => null);
-  if (!player) {
+  // The name on a review is the Discord account that wrote it, so the session
+  // supplies it — a client-sent name could impersonate anyone.
+  const author = await currentUser(request).catch(() => null);
+  if (!author) {
     return Response.json(
-      { error: "마인크래프트 계정으로 로그인한 뒤 후기를 남길 수 있습니다." },
+      { error: "디스코드로 로그인한 뒤 후기를 남길 수 있습니다." },
       { status: 401 },
     );
   }
@@ -32,7 +32,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     const result = await submitReview(token, {
       rating,
       body: String(body.body ?? ""),
-      player,
+      player: { uuid: author.id, name: author.name },
     });
     if (!result.ok) return Response.json({ error: result.error }, { status: 409 });
     return Response.json({ ok: true, shopSlug: result.shopSlug });

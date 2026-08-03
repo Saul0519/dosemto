@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { headers } from "next/headers";
-import { MC_SESSION_COOKIE, mcAuthConfig, verifyPlayer } from "../../../db/mc-session";
+import { discordConfig } from "../../../db/discord-session";
+import { getUser } from "../../session";
 import { lookupReviewToken } from "../../../db/reviews";
 import { SITE } from "../../site-content";
 import ReviewForm from "./form";
@@ -69,35 +69,31 @@ export default async function ReviewPage({ params }: { params: Promise<{ token: 
     );
   }
 
-  // The reviewer's name is their Minecraft account, so signing in comes first.
-  const cookie = (await headers()).get("cookie") ?? "";
-  const raw = cookie.split(";").map((part) => part.trim().split("="))
-    .find(([key]) => key === MC_SESSION_COOKIE)?.slice(1).join("=");
-  const player = await verifyPlayer(raw ? decodeURIComponent(raw) : null).catch(() => null);
-  const { configured } = await mcAuthConfig();
+  // The reviewer's name is their Discord account, so signing in comes first.
+  const user = await getUser().catch(() => null);
+  const { configured } = await discordConfig();
 
-  if (!player) {
+  if (!user) {
     return (
       <Shell>
         <div className="action-card">
           <p className="eyebrow">{invite.shopName}</p>
-          <h1>마인크래프트 계정으로 로그인</h1>
+          <h1>디스코드로 로그인</h1>
           <p>
-            후기에는 로그인한 마인크래프트 계정 이름이 그대로 표시됩니다.
+            후기에는 로그인한 디스코드 계정 이름이 그대로 표시됩니다.
             닉네임을 직접 적는 방식이 아니라, 실제 계정으로 확인된 이름만 올라갑니다.
           </p>
           {configured ? (
             <a className="btn btn-solid" href={`/login?next=${encodeURIComponent(`/review/${token}`)}`}>
-              마인크래프트로 로그인 <span className="arrow" aria-hidden="true">→</span>
+              디스코드로 로그인 <span className="arrow" aria-hidden="true">→</span>
             </a>
           ) : (
             <p className="action-error">
-              마인크래프트 로그인이 아직 설정되지 않았습니다. 사이트 관리자에게 알려주세요.
+              디스코드 로그인이 아직 설정되지 않았습니다. 사이트 관리자에게 알려주세요.
             </p>
           )}
           <p className="action-note">
-            로그인은 Mc-Auth를 통해 처리되며, 이 사이트는 비밀번호를 받지 않습니다.
-            받아오는 정보는 계정 이름과 UUID뿐입니다.
+            이 사이트는 비밀번호를 받지 않습니다. 받아오는 정보는 계정 이름과 사용자 ID뿐입니다.
           </p>
         </div>
       </Shell>
@@ -113,7 +109,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ token: 
           주문 <b>{invite.orderId}</b> · 캔버스 {invite.tileCount}장 · 마감 {invite.deadline}일.
           남긴 후기는 이 샵 소개 페이지에 공개됩니다.
         </p>
-        <ReviewForm token={token} shopSlug={invite.shopSlug} playerName={player.name}/>
+        <ReviewForm token={token} shopSlug={invite.shopSlug} playerName={user.name}/>
       </div>
     </Shell>
   );

@@ -88,7 +88,9 @@ async function ensureOrdersTable() {
   // column error just means it is already there.
   await db.prepare("ALTER TABLE orders ADD COLUMN webhook_message_id TEXT")
     .run().catch(() => undefined);
-  // The verified Minecraft account that placed the order.
+  // The signed-in account that placed the order. Column names predate the
+  // switch from Minecraft to Discord sign-in; they now hold the Discord
+  // snowflake and display name.
   await db.prepare("ALTER TABLE orders ADD COLUMN player_uuid TEXT").run().catch(() => undefined);
   await db.prepare("ALTER TABLE orders ADD COLUMN player_name TEXT").run().catch(() => undefined);
 }

@@ -1,4 +1,4 @@
-import { MC_SESSION_COOKIE, cookieHeader, safeNextPath } from "../../../../db/mc-session";
+import { SESSION_COOKIE, cookieHeader, safeNextPath } from "../../../../db/discord-session";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     status: 303,
     headers: {
       location: `${url.origin}${next}`,
-      "set-cookie": cookieHeader(MC_SESSION_COOKIE, "", 0),
+      "set-cookie": cookieHeader(SESSION_COOKIE, "", 0),
     },
   });
 }

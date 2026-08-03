@@ -117,11 +117,11 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-export default function PixelOrderStudio({ shop, captchaSiteKey, playerName, loginConfigured }: {
+export default function PixelOrderStudio({ shop, captchaSiteKey, userName, loginConfigured }: {
   shop: Shop;
   captchaSiteKey: string;
-  /** Verified Minecraft account name, or null when signed out. */
-  playerName: string | null;
+  /** Signed-in Discord display name, or null when signed out. */
+  userName: string | null;
   loginConfigured: boolean;
 }) {
   const [palette, setPalette] = useState<RGB[]>([]);
@@ -134,7 +134,6 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, playerName, log
   const [deadline, setDeadline] = useState(7);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isRendering, setIsRendering] = useState(false);
-  const [contact, setContact] = useState("");
   const [note, setNote] = useState("");
   const [orderState, setOrderState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [orderMessage, setOrderMessage] = useState("");
@@ -318,10 +317,6 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, playerName, log
       setOrderMessage("먼저 주문할 이미지를 올려 주세요.");
       return;
     }
-    if (!contact.trim()) {
-      setOrderMessage("연락받을 디스코드 ID를 입력해 주세요.");
-      return;
-    }
     setOrderState("sending");
     setOrderMessage("");
     const previewBlob = await new Promise<Blob | null>((resolve) => previewCanvasRef.current?.toBlob(resolve, "image/png"));
@@ -333,7 +328,6 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, playerName, log
     const form = new FormData();
     form.append("preview", previewBlob, `converted_${gridX}x${gridY}.png`);
     if (file.size <= 8 * 1024 * 1024) form.append("original", file, file.name);
-    form.append("contact", contact.trim());
     form.append("note", note.trim());
     form.append("gridX", String(gridX));
     form.append("gridY", String(gridY));
@@ -370,7 +364,7 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, playerName, log
           <Link className="active" href={`/shop/${shop.slug}`}>주문 제작</Link>
           <Link href={`/shop/${shop.slug}/about`}>샵 소개</Link>
         </nav>
-        <AccountChip playerName={playerName} next={`/shop/${shop.slug}`}/>
+        <AccountChip userName={userName} next={`/shop/${shop.slug}`}/>
         <Link className="admin-link" href="/admin"><Icon name="lock" size={15}/> 샵 관리자</Link>
       </header>
 
@@ -492,16 +486,14 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, playerName, log
           <div className="total-price"><span>예상 금액</span><strong>{formatWon(totalPrice)}</strong></div>
 
           <div className="contact-fields">
-            <label>연락받을 디스코드 ID <span>필수</span><input value={contact} onChange={(event) => setContact(event.target.value)} placeholder="예: dotorder_123"/></label>
             <label>요청사항 <span>선택</span><textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="화가가 알아야 할 내용을 적어주세요." rows={2}/></label>
-            <small className="contact-hint">이 ID로만 연락이 갑니다. 보내기 전에 오타가 없는지 한 번 확인해 주세요.</small>
           </div>
 
-          {playerName ? <>
+          {userName ? <>
             <div className="order-player">
               <span>주문자</span>
-              <b>{playerName}</b>
-              <small>확인된 마인크래프트 계정으로 접수됩니다.</small>
+              <b>{userName}</b>
+              <small>이 디스코드 계정으로 접수되고, 진행 상황도 여기로 안내됩니다.</small>
             </div>
 
             <TurnstileCaptcha siteKey={captchaSiteKey} resetKey={captchaResetKey} onToken={setCaptchaToken}/>
@@ -511,10 +503,10 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, playerName, log
             </button>
             <p className={`order-status ${orderState}`}>{orderMessage || <><Icon name="lock" size={14}/> 변환 도안과 주문 내용이 샵 디스코드로 함께 전송됩니다.</>}</p>
           </> : <div className="order-login">
-            <b>주문하려면 마인크래프트 로그인이 필요합니다</b>
-            <span>가짜 주문을 막기 위해 정품 계정만 접수합니다. 도안 변환과 PNG 다운로드는 로그인 없이 그대로 쓰실 수 있습니다.</span>
+            <b>주문하려면 디스코드 로그인이 필요합니다</b>
+            <span>연락처를 따로 적지 않아도 되고, 수락·거절·완성 알림이 디스코드로 갑니다. 도안 변환과 PNG 다운로드는 로그인 없이 그대로 쓰실 수 있습니다.</span>
             {loginConfigured
-              ? <a className="order-button" href={`/login?next=${encodeURIComponent(`/shop/${shop.slug}`)}`}>마인크래프트로 로그인 <span>→</span></a>
+              ? <a className="order-button" href={`/login?next=${encodeURIComponent(`/shop/${shop.slug}`)}`}>디스코드로 로그인 <span>→</span></a>
               : <p className="order-status error">마인크래프트 로그인이 아직 설정되지 않았습니다. 샵 관리자에게 알려주세요.</p>}
           </div>}
         </aside>

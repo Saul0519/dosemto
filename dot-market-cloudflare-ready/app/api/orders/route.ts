@@ -1,7 +1,7 @@
 import { validateImageFile } from "../../../db/image-validation";
 import { createOrder, setOrderMessageId, setOrderWebhookResult } from "../../../db/orders";
 import { ACTION_LABELS, issueOrderTokens, randomToken } from "../../../db/order-actions";
-import { currentPlayer } from "../../../db/mc-session";
+import { currentUser } from "../../../db/discord-session";
 import { getOrderShop } from "../../../db/shops";
 import { verifyTurnstile } from "../../../db/turnstile";
 import { decryptWebhook } from "../../../db/webhook-crypto";
@@ -46,12 +46,13 @@ export async function POST(request: Request) {
     return Response.json({ error: captcha.error }, { status: captcha.status });
   }
 
-  // Every order is tied to a verified Minecraft account. Converting an image and
+  // Every order is tied to a signed-in Discord account. Converting an image and
   // downloading the pattern stay open; only submitting an order needs this.
-  const player = await currentPlayer(request).catch(() => null);
-  if (!player) {
+  // The snowflake is also the only thing a bot can DM later.
+  const orderer = await currentUser(request).catch(() => null);
+  if (!orderer) {
     return Response.json(
-      { error: "마인크래프트 계정으로 로그인한 뒤 주문할 수 있습니다." },
+      { error: "디스코드로 로그인한 뒤 주문할 수 있습니다." },
       { status: 401 },
     );
   }
@@ -77,15 +78,17 @@ export async function POST(request: Request) {
 
   const preview = form.get("preview");
   const original = form.get("original");
-  const contact = String(form.get("contact") ?? "").trim().slice(0, 100);
+  // No longer typed by hand: the signed-in account is the contact, which also
+  // means it cannot be someone else's name.
+  const contact = `${orderer.name} (${orderer.id})`.slice(0, 100);
   const note = String(form.get("note") ?? "").trim().slice(0, 1000);
   const cropLabel = String(form.get("cropLabel") ?? "자르기 없음").slice(0, 100);
   const originalFilename = safeFilename(String(form.get("originalFilename") ?? "image"));
   const gridX = numberField(form, "gridX");
   const gridY = numberField(form, "gridY");
   const deadline = numberField(form, "deadline");
-  if (!(preview instanceof File) || !contact) {
-    return Response.json({ error: "이미지와 디스코드 ID를 확인해 주세요." }, { status: 400 });
+  if (!(preview instanceof File)) {
+    return Response.json({ error: "변환한 도안 이미지를 찾지 못했습니다." }, { status: 400 });
   }
   if (![gridX, gridY, deadline].every(Number.isInteger) || gridX < 1 || gridX > 30 || gridY < 1 || gridY > 100 || deadline < 1 || deadline > 7) {
     return Response.json({ error: "격자 크기 또는 마감일이 올바르지 않습니다." }, { status: 400 });
@@ -139,8 +142,8 @@ export async function POST(request: Request) {
       previewContentType: previewFile.mime,
       originalObjectKey,
       originalContentType: originalFile?.mime ?? null,
-      playerUuid: player.uuid,
-      playerName: player.name,
+      playerUuid: orderer.id,
+      playerName: orderer.name,
     });
   } catch {
     await env.BUCKET.delete(previewObjectKey);
@@ -174,7 +177,7 @@ export async function POST(request: Request) {
         ? `**처리하기**\n${actionLinks}\n\n각 링크는 한 번만 쓸 수 있습니다.`
         : undefined,
       fields: [
-        { name: "마인크래프트", value: player.name, inline: true },
+        { name: "주문자", value: `${orderer.name} (<@${orderer.id}>)`, inline: true },
         { name: "연락처", value: contact, inline: true },
         { name: "마감", value: `${deadline}일`, inline: true },
         { name: "예상 금액", value: `${calculatedPrice.toLocaleString("ko-KR")}원`, inline: true },

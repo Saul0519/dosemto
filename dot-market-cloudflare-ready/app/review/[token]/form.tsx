@@ -69,7 +69,7 @@ export default function ReviewForm({ token, shopSlug, playerName }: {
       <div className="review-author">
         <span>표시할 이름</span>
         <b>{playerName}</b>
-        <small>로그인한 마인크래프트 계정 이름입니다. 바꿀 수 없습니다.</small>
+        <small>로그인한 디스코드 계정 이름입니다. 바꿀 수 없습니다.</small>
       </div>
 
       <label>

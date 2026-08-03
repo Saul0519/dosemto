@@ -5,7 +5,7 @@ import { getPublicShop } from "../../../../db/shops";
 import { getShopRating, listShopReviews } from "../../../../db/reviews";
 import { SHOP_PAGE, SITE } from "../../../site-content";
 import AccountChip from "../../../account-chip";
-import { getPlayer } from "../../../session";
+import { getUser } from "../../../session";
 import AboutGallery from "./gallery";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
   const shop = await getPublicShop(slug);
   if (!shop) notFound();
 
-  const player = await getPlayer().catch(() => null);
+  const user = await getUser().catch(() => null);
   const [rating, reviews] = await Promise.all([
     getShopRating(shop.id).catch(() => ({ average: 0, count: 0, completedOrders: 0 })),
     listShopReviews(shop.id).catch(() => []),
@@ -50,7 +50,7 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
           <Link href={`/shop/${shop.slug}`}>주문 제작</Link>
           <Link className="active" href={`/shop/${shop.slug}/about`}>샵 소개</Link>
         </nav>
-        <AccountChip playerName={player?.name ?? null} next={`/shop/${shop.slug}/about`}/>
+        <AccountChip userName={user?.name ?? null} next={`/shop/${shop.slug}/about`}/>
         <Link className="admin-link" href="/admin">샵 관리자</Link>
       </header>
 

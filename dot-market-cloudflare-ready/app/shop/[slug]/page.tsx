@@ -1,7 +1,7 @@
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import PixelOrderStudio from "../../pixel-order-studio";
-import { MC_SESSION_COOKIE, mcAuthConfig, verifyPlayer } from "../../../db/mc-session";
+import { discordConfig } from "../../../db/discord-session";
+import { getUser } from "../../session";
 import { getPublicShop } from "../../../db/shops";
 import { turnstileSiteKey } from "../../../db/turnstile";
 
@@ -12,18 +12,15 @@ export default async function ShopPage({ params }: { params: Promise<{ slug: str
   const [shop, captchaSiteKey] = await Promise.all([getPublicShop(slug), turnstileSiteKey()]);
   if (!shop) notFound();
 
-  // Ordering needs a verified Minecraft account; converting and downloading do not.
-  const cookie = (await headers()).get("cookie") ?? "";
-  const raw = cookie.split(";").map((part) => part.trim().split("="))
-    .find(([key]) => key === MC_SESSION_COOKIE)?.slice(1).join("=");
-  const player = await verifyPlayer(raw ? decodeURIComponent(raw) : null).catch(() => null);
-  const { configured } = await mcAuthConfig();
+  // Ordering needs a signed-in Discord account; converting and downloading do not.
+  const user = await getUser().catch(() => null);
+  const { configured } = await discordConfig();
 
   return (
     <PixelOrderStudio
       shop={shop}
       captchaSiteKey={captchaSiteKey}
-      playerName={player?.name ?? null}
+      userName={user?.name ?? null}
       loginConfigured={configured}
     />
   );
