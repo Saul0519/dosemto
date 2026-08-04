@@ -8,12 +8,14 @@
 
 export type ShopApplication = {
   id: string;
-  /** In-game name — how the owner finds them on the server. */
+  /** The name they actually go by on 도스온라인, so the owner can find them. */
   mcNick: string;
   /** Town, shop street, guild: wherever they are based in game. */
   affiliation: string;
   /** What they do on the server. */
   job: string;
+  /** Where the owner would grant them manager access. */
+  email: string;
   shopName: string;
   /** The address they would like, if they had a preference. */
   wantedSlug: string;
@@ -30,6 +32,7 @@ type Row = {
   mc_nick: string;
   affiliation: string;
   job: string;
+  email: string;
   shop_name: string;
   wanted_slug: string;
   intro: string;
@@ -72,7 +75,7 @@ async function migrate() {
     "CREATE INDEX IF NOT EXISTS shop_applications_status_idx ON shop_applications (status, created_at DESC)",
   ).run();
   // Added after the first version; tolerant so an existing table keeps working.
-  for (const column of ["mc_nick", "affiliation", "job"]) {
+  for (const column of ["mc_nick", "affiliation", "job", "email"]) {
     await db.prepare(`ALTER TABLE shop_applications ADD COLUMN ${column} TEXT NOT NULL DEFAULT ''`)
       .run().catch(() => undefined);
   }
@@ -84,6 +87,7 @@ function toApplication(row: Row): ShopApplication {
     mcNick: row.mc_nick ?? "",
     affiliation: row.affiliation ?? "",
     job: row.job ?? "",
+    email: row.email ?? "",
     shopName: row.shop_name,
     wantedSlug: row.wanted_slug,
     intro: row.intro,
@@ -112,6 +116,7 @@ export async function submitApplication(input: {
   mcNick: string;
   affiliation: string;
   job: string;
+  email: string;
   shopName: string;
   wantedSlug: string;
   intro: string;
@@ -123,7 +128,14 @@ export async function submitApplication(input: {
   if (!shopName) return { ok: false, error: "가게 이름을 적어주세요.", status: 400 };
 
   const mcNick = input.mcNick.trim().slice(0, 40);
-  if (!mcNick) return { ok: false, error: "마인크래프트 닉네임을 적어주세요.", status: 400 };
+  if (!mcNick) return { ok: false, error: "도스에서 쓰는 닉네임을 적어주세요.", status: 400 };
+
+  // Not a full address check — just enough to catch a typo. This is the address
+  // the owner would allow into the admin screen, so it has to be a real inbox.
+  const email = input.email.trim().slice(0, 120);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { ok: false, error: "관리자 로그인에 쓸 이메일을 정확히 적어주세요.", status: 400 };
+  }
 
   // Lowercased and stripped to the shape a slug has to take, so the owner can
   // use it as-is instead of correcting it by hand.
@@ -141,13 +153,14 @@ export async function submitApplication(input: {
 
   const db = await getD1();
   await db.prepare(`INSERT INTO shop_applications
-    (id, mc_nick, affiliation, job, shop_name, wanted_slug, intro, note, applicant_id, applicant_name)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    (id, mc_nick, affiliation, job, email, shop_name, wanted_slug, intro, note, applicant_id, applicant_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).bind(
     crypto.randomUUID(),
     mcNick,
     input.affiliation.trim().slice(0, 60),
     input.job.trim().slice(0, 60),
+    email,
     shopName,
     wantedSlug,
     input.intro.trim().slice(0, 500),
@@ -164,7 +177,7 @@ export async function listApplications(limit = 100): Promise<ShopApplication[]> 
   const db = await getD1();
   const rows = await db.prepare(
     // Unread first: those are the ones needing an answer.
-    `SELECT id, mc_nick, affiliation, job, shop_name, wanted_slug, intro, note,
+    `SELECT id, mc_nick, affiliation, job, email, shop_name, wanted_slug, intro, note,
             applicant_id, applicant_name, status, created_at
        FROM shop_applications
       ORDER BY status = 'new' DESC, created_at DESC LIMIT ?`,

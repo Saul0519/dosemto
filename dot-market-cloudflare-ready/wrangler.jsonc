@@ -41,6 +41,10 @@
   // values belong here; secrets stay as Secrets, which deploys do not touch.
   "vars": {
     "SUPER_ADMIN_EMAIL": "sihyung0519@gmail.com",
+    // Where the bot sends a DM when someone applies to open a shop. A user id,
+    // not a secret — it is here rather than in code so it can change without a
+    // deploy of its own.
+    "OWNER_DISCORD_ID": "897782087703232553",
     "TURNSTILE_SITE_KEY": "0x4AAAAAAEC_4kj8JOBejss_",
     // Discord application id, which doubles as the OAuth2 client id. Public —
     // it travels in the login URL. The matching DISCORD_CLIENT_SECRET and the

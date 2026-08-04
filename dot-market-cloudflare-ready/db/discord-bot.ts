@@ -91,3 +91,38 @@ export async function postOrderMessage(input: {
   const message = await response.json().catch(() => null) as { id?: string } | null;
   return { ok: true as const, messageId: message?.id ?? null };
 }
+
+/**
+ * Sends a direct message to one Discord account.
+ *
+ * Opening a DM channel is its own call; Discord has no "message this user"
+ * endpoint. Returns false rather than throwing — every caller so far treats a
+ * failed notification as something to shrug at, not something to fail on.
+ */
+export async function sendDirectMessage(userId: string, payload: Record<string, unknown>) {
+  const token = await botToken();
+  if (!token || !userId) return false;
+
+  const headers = {
+    authorization: `Bot ${token}`,
+    "content-type": "application/json",
+    "user-agent": "DotMarket (https://dosemto.store, 1.0)",
+  };
+
+  const channel = await fetch(`${API}/users/@me/channels`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ recipient_id: userId }),
+  }).catch(() => null);
+  if (!channel?.ok) return false;
+
+  const dm = await channel.json().catch(() => null) as { id?: string } | null;
+  if (!dm?.id) return false;
+
+  const sent = await fetch(`${API}/channels/${dm.id}/messages`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  }).catch(() => null);
+  return Boolean(sent?.ok);
+}

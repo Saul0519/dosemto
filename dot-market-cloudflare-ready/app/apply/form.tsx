@@ -11,6 +11,7 @@ export default function ApplyForm({ applicantName, applicantId }: {
   const [mcNick, setMcNick] = useState("");
   const [affiliation, setAffiliation] = useState("");
   const [job, setJob] = useState("");
+  const [email, setEmail] = useState("");
   const [shopName, setShopName] = useState("");
   const [wantedSlug, setWantedSlug] = useState("");
   const [intro, setIntro] = useState("");
@@ -21,14 +22,17 @@ export default function ApplyForm({ applicantName, applicantId }: {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!mcNick.trim()) { setError("마인크래프트 닉네임을 적어주세요."); return; }
+    if (!mcNick.trim()) { setError("도스에서 쓰는 닉네임을 적어주세요."); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError("관리자 로그인에 쓸 이메일을 정확히 적어주세요."); return;
+    }
     if (!shopName.trim()) { setError("가게 이름을 적어주세요."); return; }
     setBusy(true); setError("");
     try {
       const response = await fetch("/api/apply", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mcNick, affiliation, job, shopName, wantedSlug, intro, note }),
+        body: JSON.stringify({ mcNick, affiliation, job, email, shopName, wantedSlug, intro, note }),
       });
       await readResult(response, "신청을 보내지 못했습니다.");
       setSent(true);
@@ -62,12 +66,12 @@ export default function ApplyForm({ applicantName, applicantId }: {
         </div>
 
         <label>
-          마인크래프트 닉네임
+          도스 닉네임
           <input
             value={mcNick}
             onChange={(event) => setMcNick(event.target.value)}
             maxLength={40}
-            placeholder="게임에서 쓰는 이름"
+            placeholder="실제 도스에서 사용 중인 닉네임"
             required
           />
         </label>
@@ -79,8 +83,15 @@ export default function ApplyForm({ applicantName, applicantId }: {
               value={affiliation}
               onChange={(event) => setAffiliation(event.target.value)}
               maxLength={60}
-              placeholder="예: 상가이동 치이카와관"
+              placeholder="예: 예술협회, 도화숲"
+              list="apply-affiliations"
             />
+            {/* Suggestions, not a fixed list: someone from anywhere else can
+                still type their own. */}
+            <datalist id="apply-affiliations">
+              <option value="예술협회"/>
+              <option value="도화숲"/>
+            </datalist>
           </label>
           <label>
             직업 <small>선택</small>
@@ -88,10 +99,23 @@ export default function ApplyForm({ applicantName, applicantId }: {
               value={job}
               onChange={(event) => setJob(event.target.value)}
               maxLength={60}
-              placeholder="예: 화가, 건축가"
+              placeholder="예: 화가"
             />
           </label>
         </div>
+
+        <label>
+          이메일
+          <input
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            maxLength={120}
+            placeholder="me@example.com"
+            required
+          />
+          <small>샵이 열리면 이 주소로 관리자 화면에 로그인하게 됩니다. 실제로 받을 수 있는 주소로 적어주세요.</small>
+        </label>
       </fieldset>
 
       <fieldset className="apply-group">
