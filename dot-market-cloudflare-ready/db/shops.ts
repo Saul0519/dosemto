@@ -1,4 +1,5 @@
 import { BASE_DEADLINE, RUSH_DEADLINE } from "./deadlines";
+import { LoyaltyTier, parseTiers, serialiseTiers } from "./loyalty";
 import { DEFAULT_PRICING, PricingConfig } from "./pricing";
 
 type ShopRow = {
@@ -24,6 +25,8 @@ type ShopRow = {
   day_6_multiplier: number;
   day_7_multiplier: number;
   cover_image_id: string | null;
+  premium: number;
+  loyalty_tiers: string | null;
   active: number;
   created_at: string;
   updated_at: string;
@@ -70,6 +73,10 @@ export type PublicShop = {
   coverImageId: string | null;
   /** When the shop opened. Public because the market list can sort by it. */
   createdAt: string;
+  /** Paid placement badge. Public by design — the point is that it shows. */
+  premium: boolean;
+  /** What this shop calls its repeat customers, and from how many orders. */
+  loyaltyTiers: LoyaltyTier[];
 };
 
 export type ManagedShop = PublicShop & {
@@ -164,6 +171,13 @@ async function migrateShopsTable() {
   await db.prepare("ALTER TABLE shops ADD COLUMN slot_manual INTEGER NOT NULL DEFAULT 0").run().catch(() => undefined);
   // Which uploaded image represents the shop. Null falls back to position order.
   await db.prepare("ALTER TABLE shops ADD COLUMN cover_image_id TEXT").run().catch(() => undefined);
+  // A paid badge, shown on the card. Public and meant to be seen.
+  await db.prepare("ALTER TABLE shops ADD COLUMN premium INTEGER NOT NULL DEFAULT 0").run().catch(() => undefined);
+  // Hand-set position in the recommended list. Deliberately NOT part of any
+  // shop type — see listFeatureRanks.
+  await db.prepare("ALTER TABLE shops ADD COLUMN feature_rank INTEGER NOT NULL DEFAULT 0").run().catch(() => undefined);
+  // Titles the shop gives its repeat customers, as JSON. Null means defaults.
+  await db.prepare("ALTER TABLE shops ADD COLUMN loyalty_tiers TEXT").run().catch(() => undefined);
 
   await seedDefaultShopOnce(db);
 }
@@ -215,7 +229,8 @@ async function seedDefaultShopOnce(db: Awaited<ReturnType<typeof getD1>>) {
 }
 
 const selectColumns = `id, slug, name, description, about_title, about_text, manager_email,
-  webhook_ciphertext, webhook_iv, channel_id, guild_id, slot_max, slot_manual, cover_image_id, tile_price,
+  webhook_ciphertext, webhook_iv, channel_id, guild_id, slot_max, slot_manual, cover_image_id,
+  premium, loyalty_tiers, tile_price,
   day_1_multiplier, day_2_multiplier, day_3_multiplier, day_4_multiplier,
   day_5_multiplier, day_6_multiplier, day_7_multiplier,
   active, created_at, updated_at`;
@@ -309,6 +324,8 @@ function toManagedShop(row: ShopRow, images: ShopImage[] = []): ManagedShop {
     slotMax: row.slot_max ?? 0,
     slotManual: row.slot_manual ?? 0,
     coverImageId: row.cover_image_id ?? null,
+    premium: Boolean(row.premium),
+    loyaltyTiers: parseTiers(row.loyalty_tiers),
     // Orders go out through the bot now, so a channel is what makes a shop
     // reachable. The name is kept so existing callers keep working.
     webhookConfigured: Boolean(row.channel_id),
@@ -427,6 +444,7 @@ export async function updateShopSettings(id: string, input: {
   aboutTitle: string;
   aboutText: string;
   pricing: PricingConfig;
+  loyaltyTiers: LoyaltyTier[];
   channelId?: string | null;
   /** Required, not optional: omitting these would silently reset the queue. */
   slotMax: number;
@@ -447,23 +465,25 @@ export async function updateShopSettings(id: string, input: {
   const slotMax = Math.max(0, Math.min(999, Math.trunc(input.slotMax) || 0));
   const slotManual = Math.max(0, Math.min(999, Math.trunc(input.slotManual) || 0));
 
+  const loyaltyTiers = serialiseTiers(input.loyaltyTiers ?? []);
+
   if (input.channelId !== undefined) {
     await db.prepare(`UPDATE shops SET name = ?, description = ?, about_title = ?, about_text = ?, tile_price = ?,
       day_1_multiplier = ?, day_2_multiplier = ?, day_3_multiplier = ?,
       day_4_multiplier = ?, day_5_multiplier = ?, day_6_multiplier = ?,
-      day_7_multiplier = ?, channel_id = ?, slot_max = ?, slot_manual = ?,
+      day_7_multiplier = ?, channel_id = ?, slot_max = ?, slot_manual = ?, loyalty_tiers = ?,
       updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(
       input.name, input.description, input.aboutTitle, input.aboutText, input.pricing.tilePrice, ...multipliers,
-      input.channelId, slotMax, slotManual, id,
+      input.channelId, slotMax, slotManual, loyaltyTiers, id,
     ).run();
   } else {
     await db.prepare(`UPDATE shops SET name = ?, description = ?, about_title = ?, about_text = ?, tile_price = ?,
       day_1_multiplier = ?, day_2_multiplier = ?, day_3_multiplier = ?,
       day_4_multiplier = ?, day_5_multiplier = ?, day_6_multiplier = ?,
-      day_7_multiplier = ?, slot_max = ?, slot_manual = ?,
+      day_7_multiplier = ?, slot_max = ?, slot_manual = ?, loyalty_tiers = ?,
       updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(
       input.name, input.description, input.aboutTitle, input.aboutText, input.pricing.tilePrice, ...multipliers,
-      slotMax, slotManual, id,
+      slotMax, slotManual, loyaltyTiers, id,
     ).run();
   }
 }
@@ -603,14 +623,42 @@ export async function deleteShopCascade(id: string) {
   };
 }
 
+/**
+ * Hand-set positions in the recommended list, by shop id.
+ *
+ * Loaded on its own rather than hung off a shop object on purpose. PublicShop
+ * is handed whole to the order screen's client component, and ManagedShop to
+ * the admin panel, so a field on either would be sitting in the page source for
+ * anyone who looked — and the point of this ordering is that it does not
+ * announce itself. Two callers only: the market list's sort, and /control.
+ */
+export async function listFeatureRanks(): Promise<Map<string, number>> {
+  await ensureShopsTable();
+  const rows = await getD1().then((db) => db.prepare(
+    "SELECT id, feature_rank FROM shops WHERE feature_rank > 0",
+  ).all<{ id: string; feature_rank: number }>()).catch(() => ({ results: [] as { id: string; feature_rank: number }[] }));
+  return new Map(rows.results.map((row) => [row.id, row.feature_rank] as [string, number]));
+}
+
 export async function updateShopControl(id: string, input: {
   managerEmail: string;
   active: boolean;
+  premium: boolean;
+  /** 0 leaves the shop to be ranked on its own merits. */
+  featureRank: number;
 }) {
   await ensureShopsTable();
+  const featureRank = Math.max(0, Math.min(999, Math.trunc(input.featureRank) || 0));
   await getD1().then((db) => db.prepare(`UPDATE shops SET
-    manager_email = ?, active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
-  ).bind(input.managerEmail.toLowerCase(), input.active ? 1 : 0, id).run());
+    manager_email = ?, active = ?, premium = ?, feature_rank = ?,
+    updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+  ).bind(
+    input.managerEmail.toLowerCase(),
+    input.active ? 1 : 0,
+    input.premium ? 1 : 0,
+    featureRank,
+    id,
+  ).run());
 }
 
 /** Records the server a shop's manager just invited the bot to. */

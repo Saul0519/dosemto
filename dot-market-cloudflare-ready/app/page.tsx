@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { countActiveOrdersByShop } from "../db/orders";
-import { listPublicShops } from "../db/shops";
+import { listFeatureRanks, listPublicShops } from "../db/shops";
 import { slotState } from "../db/slots";
 import { listShopRatings } from "../db/reviews";
 import { SHOPS_PER_PAGE, SHOP_SORTS, parsePage, parseSort, sortShops } from "../db/shop-sort";
@@ -33,11 +33,14 @@ export default async function Home({ searchParams }: {
   const params = await searchParams;
   const sort = parseSort(params.sort);
 
-  const [allShops, user, ratings, activeOrders] = await Promise.all([
+  const [allShops, user, ratings, activeOrders, featureRanks] = await Promise.all([
     listPublicShops().catch(() => []),
     getUser().catch(() => null),
     listShopRatings().catch(() => new Map()),
     countActiveOrdersByShop().catch(() => new Map<string, number>()),
+    // Read here and used only for sorting. It is never rendered and never
+    // reaches a client component, so nothing on the page reveals it exists.
+    listFeatureRanks().catch(() => new Map<string, number>()),
   ]);
 
   // The shuffle lives in the URL: this page renders more than once per request,
@@ -51,6 +54,7 @@ export default async function Home({ searchParams }: {
       ...shop,
       slots,
       rating: ratings.get(shop.id) ?? NO_RATING,
+      featureRank: featureRanks.get(shop.id) ?? 0,
       orderable: shop.webhookConfigured && !slots.full,
     };
   }), sort, seed);
@@ -210,7 +214,9 @@ export default async function Home({ searchParams }: {
                   </div>
                   <div className="shop-card-copy">
                     <div>
-                      <small>/{shop.slug}</small>
+                      {shop.premium
+                        ? <small className="shop-premium">PREMIUM</small>
+                        : <small>/{shop.slug}</small>}
                       {!shop.webhookConfigured ? <span className="preparing">준비 중</span>
                         : shop.slots.full ? <span className="closed">접수 마감</span>
                         : shop.slots.enabled ? <span className="ready">슬롯 {shop.slots.used}/{shop.slots.max}</span>

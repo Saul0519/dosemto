@@ -1,5 +1,6 @@
 import { getChatGPTUser } from "../../../../chatgpt-auth";
 import { getShopForManager, updateShopSettings, validPricing } from "../../../../../db/shops";
+import { LoyaltyTier, normaliseTiers } from "../../../../../db/loyalty";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,10 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   const slotMax = Math.max(0, Math.min(999, Math.trunc(Number(body.slotMax) || 0)));
   const slotManual = Math.max(0, Math.min(999, Math.trunc(Number(body.slotManual) || 0)));
 
+  // normaliseTiers drops anything malformed, so a hand-made request cannot put
+  // a blank or absurd title on the page.
+  const loyaltyTiers = normaliseTiers(Array.isArray(body.loyaltyTiers) ? body.loyaltyTiers as LoyaltyTier[] : []);
+
   try {
     await updateShopSettings(id, {
       name,
@@ -52,6 +57,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       aboutTitle,
       aboutText,
       pricing: body.pricing,
+      loyaltyTiers,
       channelId,
       slotMax,
       slotManual,
@@ -90,6 +96,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       aboutTitle: shop.aboutTitle,
       aboutText: shop.aboutText,
       pricing: shop.pricing,
+      loyaltyTiers: shop.loyaltyTiers,
       slotMax,
       slotManual,
     });

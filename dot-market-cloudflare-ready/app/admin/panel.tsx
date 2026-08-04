@@ -4,6 +4,7 @@ import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } fro
 import Link from "next/link";
 import { readResult } from "../read-result";
 import { DEADLINE_CHOICES, deadlineLabel } from "../../db/deadlines";
+import { LoyaltyTier, MAX_TIERS } from "../../db/loyalty";
 
 type Pricing = { tilePrice: number; deadlineMultipliers: Record<string, number> };
 /** Colours the save bar: a failure must not read as a success. */
@@ -23,6 +24,7 @@ type ManagedShop = {
   channelId: string | null;
   guildId: string | null;
   coverImageId: string | null;
+  loyaltyTiers: LoyaltyTier[];
   slotMax: number;
   slotManual: number;
   active: boolean;
@@ -165,7 +167,7 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
   const fingerprint = (shop: ManagedShop | null) => shop && JSON.stringify([
     shop.name, shop.description, shop.aboutTitle, shop.aboutText,
     shop.pricing.tilePrice, shop.pricing.deadlineMultipliers,
-    shop.slotMax, shop.slotManual,
+    shop.loyaltyTiers, shop.slotMax, shop.slotManual,
   ]);
   const dirty = Boolean(draft) && (
     fingerprint(draft) !== fingerprint(selected) || Boolean(channelId) || removeChannel
@@ -193,6 +195,7 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
           aboutTitle: draft.aboutTitle,
           aboutText: draft.aboutText,
           pricing: draft.pricing,
+          loyaltyTiers: draft.loyaltyTiers,
           slotMax: draft.slotMax,
           slotManual: draft.slotManual,
           channelId,
@@ -481,7 +484,39 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
               </section>
 
               <section className="settings-card">
-                <div className="settings-section-head"><span>05</span><div><h3>접수 슬롯</h3><p>한 번에 몇 건까지 받을지 정합니다. 가득 차면 주문 화면에서 접수 버튼이 잠깁니다.</p></div></div>
+                <div className="settings-section-head"><span>05</span><div><h3>단골 칭호</h3><p>같은 손님이 여러 번 주문하면 후기 옆에 붙는 이름입니다. 후기에는 몇 번째 주문인지도 함께 표시됩니다.</p></div></div>
+                <div className="tier-list">
+                  {draft.loyaltyTiers.map((tier, index) => (
+                    <div className="tier-row" key={index}>
+                      <label>주문<input type="number" min={2} max={9999} value={tier.count} onChange={(e) => {
+                        const next = [...draft.loyaltyTiers];
+                        next[index] = { ...tier, count: Math.max(2, Math.min(9999, Math.trunc(Number(e.target.value) || 2))) };
+                        setDraft({ ...draft, loyaltyTiers: next });
+                      }}/>회 이상</label>
+                      <label>칭호<input maxLength={20} value={tier.label} placeholder="예: 열혈팬" onChange={(e) => {
+                        const next = [...draft.loyaltyTiers];
+                        next[index] = { ...tier, label: e.target.value };
+                        setDraft({ ...draft, loyaltyTiers: next });
+                      }}/></label>
+                      <button type="button" onClick={() => setDraft({ ...draft, loyaltyTiers: draft.loyaltyTiers.filter((_, at) => at !== index) })}>빼기</button>
+                    </div>
+                  ))}
+                  {draft.loyaltyTiers.length === 0 && <p className="field-help">칭호를 하나도 두지 않으면 후기에는 몇 번째 주문인지만 표시됩니다.</p>}
+                  {draft.loyaltyTiers.length < MAX_TIERS && (
+                    <button type="button" className="plain-upload-button" onClick={() => setDraft({
+                      ...draft,
+                      loyaltyTiers: [...draft.loyaltyTiers, {
+                        count: (draft.loyaltyTiers.at(-1)?.count ?? 1) + 2,
+                        label: "",
+                      }],
+                    })}>칭호 추가</button>
+                  )}
+                  <p className="field-help">저장할 때 주문 횟수 순으로 정리되고, 이름이 비었거나 횟수가 겹치는 줄은 빠집니다. 최대 {MAX_TIERS}개.</p>
+                </div>
+              </section>
+
+              <section className="settings-card">
+                <div className="settings-section-head"><span>06</span><div><h3>접수 슬롯</h3><p>한 번에 몇 건까지 받을지 정합니다. 가득 차면 주문 화면에서 접수 버튼이 잠깁니다.</p></div></div>
                 <div className="field-grid">
                   <label>최대 슬롯<input type="number" min={0} max={999} value={draft.slotMax} onChange={(e) => setDraft({ ...draft, slotMax: Math.max(0, Math.min(999, Math.trunc(Number(e.target.value) || 0))) })}/><small>0으로 두면 제한 없이 계속 받습니다.</small></label>
                   <label>직접 채운 칸<input type="number" min={0} max={999} value={draft.slotManual} onChange={(e) => setDraft({ ...draft, slotManual: Math.max(0, Math.min(999, Math.trunc(Number(e.target.value) || 0))) })}/><small>사이트 밖에서 받은 작업 수. 주문 기록 화면에서도 바로 조절할 수 있습니다.</small></label>

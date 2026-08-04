@@ -18,6 +18,12 @@ export type Review = {
   updatedAt: string;
   /** Set when the author attached a photo; the URL the page should render. */
   imageUrl: string | null;
+  /**
+   * Which order of theirs this was at this shop, counting finished ones. 1 for
+   * a first-time customer, 0 when the order predates signed-in ordering and
+   * there is nobody to count.
+   */
+  orderIndex: number;
 };
 
 export type ShopRating = {
@@ -144,6 +150,7 @@ export async function getReviewForOrder(orderId: string): Promise<Review | null>
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? row.created_at,
     imageUrl: reviewImageUrl(row.order_id, row.image_key),
+    orderIndex: 0,
   };
 }
 
@@ -248,13 +255,23 @@ export async function deleteReview(orderId: string, authorId: string): Promise<O
 export async function listShopReviews(shopId: string, limit = 30): Promise<Review[]> {
   await ensureReviewsTable();
   const db = await getD1();
+  // The order index is counted against the reviewed order's own date, so an
+  // older review keeps saying "2번째" after the customer has ordered again.
   const rows = await db.prepare(
-    `SELECT id, order_id, rating, body, display_name, created_at, updated_at, image_key FROM reviews
-      WHERE shop_id = ? AND status = 'visible' ORDER BY created_at DESC LIMIT ?`,
+    `SELECT r.id, r.order_id, r.rating, r.body, r.display_name, r.created_at,
+            r.updated_at, r.image_key,
+            (SELECT COUNT(*) FROM orders past
+               WHERE past.shop_id = r.shop_id
+                 AND past.player_uuid = o.player_uuid
+                 AND past.status = 'completed'
+                 AND past.created_at <= o.created_at) AS order_index
+       FROM reviews r JOIN orders o ON o.id = r.order_id
+      WHERE r.shop_id = ? AND r.status = 'visible'
+      ORDER BY r.created_at DESC LIMIT ?`,
   ).bind(shopId, limit).all<{
     id: string; order_id: string; rating: number; body: string;
     display_name: string; created_at: string; updated_at: string | null;
-    image_key: string | null;
+    image_key: string | null; order_index: number | null;
   }>().catch(() => ({ results: [] }));
   return rows.results.map((row) => ({
     id: row.id,
@@ -265,6 +282,7 @@ export async function listShopReviews(shopId: string, limit = 30): Promise<Revie
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? row.created_at,
     imageUrl: reviewImageUrl(row.order_id, row.image_key),
+    orderIndex: row.order_index ?? 0,
   }));
 }
 
@@ -344,6 +362,7 @@ export async function listAllReviews(limit = 100): Promise<ModeratedReview[]> {
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? row.created_at,
     imageUrl: reviewImageUrl(row.order_id, row.image_key),
+    orderIndex: 0,
     shopName: row.shop_name,
     hidden: row.status !== "visible",
   }));

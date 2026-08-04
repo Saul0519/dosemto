@@ -31,6 +31,12 @@ export function parsePage(value: string | undefined) {
 type Sortable = {
   id: string;
   createdAt: string;
+  /**
+   * A position the site owner set by hand, or 0. Never rendered and never sent
+   * to the browser — it decides order and nothing else, so the list looks the
+   * same whether a shop earned its place or was put there.
+   */
+  featureRank: number;
   /** True when an order placed right now would actually reach someone. */
   orderable: boolean;
   rating: { average: number; count: number; completedOrders: number };
@@ -97,9 +103,13 @@ export function sortShops<T extends Sortable>(shops: T[], sort: ShopSort, seed: 
 
   const mean = siteMeanRating(ordered);
   return ordered.sort((a, b) =>
+    // A hand-set position wins outright, lowest number first. Everything with
+    // no position keeps competing on its merits below them.
+    (b.featureRank > 0 ? 1 : 0) - (a.featureRank > 0 ? 1 : 0)
+    || (a.featureRank > 0 && b.featureRank > 0 ? a.featureRank - b.featureRank : 0)
     // Somewhere you cannot order is the least useful result on the page,
     // however good its reviews are.
-    Number(b.orderable) - Number(a.orderable)
+    || Number(b.orderable) - Number(a.orderable)
     || bayesian(b.rating, mean) - bayesian(a.rating, mean)
     || b.rating.completedOrders - a.rating.completedOrders
     || newestFirst(a, b));

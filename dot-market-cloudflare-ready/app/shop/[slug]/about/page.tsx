@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { countActiveOrders } from "../../../../db/orders";
 import { getPublicShop } from "../../../../db/shops";
 import { slotState } from "../../../../db/slots";
+import { tierFor } from "../../../../db/loyalty";
 import { countHiddenReviews, getShopRating, listShopReviews } from "../../../../db/reviews";
 import { SHOP_PAGE, SITE } from "../../../site-content";
 import AccountChip from "../../../account-chip";
@@ -155,6 +156,11 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
                     <div className="review-head">
                       <b aria-label={`${review.rating}점`}>{"★".repeat(review.rating)}<span>{"★".repeat(5 - review.rating)}</span></b>
                       <span>{review.displayName}</span>
+                      {review.orderIndex > 0 && <i className="review-nth">{review.orderIndex}번째 주문</i>}
+                      {(() => {
+                        const tier = tierFor(review.orderIndex, shop.loyaltyTiers);
+                        return tier ? <em className="review-tier">{tier.label}</em> : null;
+                      })()}
                       <time dateTime={review.createdAt}>{review.createdAt.slice(0, 10)}</time>
                     </div>
                     {review.body && <p>{review.body}</p>}

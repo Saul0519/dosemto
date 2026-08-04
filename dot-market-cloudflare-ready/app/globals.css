@@ -1662,3 +1662,60 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 .apply-auto small { color: var(--ink-3); font-size: 11px; line-height: 1.5; font-weight: 400; }
 
 .application-who small { color: var(--ink-2); font-size: 11px; }
+
+/* ── 프리미엄 · 추천순 고정 ─────────────────────────────────────────────── */
+
+/* Sits where the /slug line normally is, so it is the first thing read on the
+   card. Warm and saturated against a page that is otherwise paper and ink. */
+.shop-card-copy .shop-premium {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: linear-gradient(100deg, var(--coral), #f0a33c);
+  color: #fff;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+}
+
+.control-shop-list .rank-row { display: grid; gap: 6px; font-size: 12px; font-weight: 700; }
+.control-shop-list .rank-row input { width: 90px; }
+.control-shop-list .rank-row small { color: var(--ink-3); font-size: 11px; font-weight: 400; line-height: 1.5; }
+
+/* ── 단골 칭호 ─────────────────────────────────────────────────────────── */
+
+.review-nth {
+  font-style: normal;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--paper-deep);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+/* The title is the reward; it gets the colour, the count stays quiet. */
+.review-tier {
+  font-style: normal;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: linear-gradient(100deg, var(--violet), #8a72d6);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.tier-list { display: grid; gap: 10px; margin-top: 4px; }
+.tier-row { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; }
+.tier-row label { display: flex !important; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; }
+.tier-row label input { width: auto !important; }
+.tier-row label input[type="number"] { width: 84px !important; }
+.tier-row > button {
+  padding: 8px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 9px;
+  background: var(--paper);
+  color: var(--danger-ink);
+  font-size: 11px;
+  cursor: pointer;
+}
+.tier-row > button:hover { border-color: var(--danger-ink); }
