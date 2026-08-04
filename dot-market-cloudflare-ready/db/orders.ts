@@ -318,6 +318,11 @@ export async function deleteOrderCascade(orderId: string) {
   }>().catch(() => null);
   if (!row) return null;
 
+  // Read before the delete: once the review row is gone so is the pointer to
+  // its photo, and the file would sit in the bucket forever.
+  const reviewImage = await db.prepare("SELECT image_key FROM reviews WHERE order_id = ?")
+    .bind(orderId).first<{ image_key: string | null }>().catch(() => null);
+
   await db.prepare("DELETE FROM orders WHERE id = ?").bind(orderId).run();
   // Child rows may predate their tables on an old database; missing is fine.
   await db.prepare("DELETE FROM reviews WHERE order_id = ?").bind(orderId).run().catch(() => undefined);
@@ -325,7 +330,8 @@ export async function deleteOrderCascade(orderId: string) {
   await db.prepare("DELETE FROM review_tokens WHERE order_id = ?").bind(orderId).run().catch(() => undefined);
 
   return {
-    objectKeys: [row.preview_object_key, row.original_object_key].filter((key): key is string => Boolean(key)),
+    objectKeys: [row.preview_object_key, row.original_object_key, reviewImage?.image_key ?? null]
+      .filter((key): key is string => Boolean(key)),
   };
 }
 

@@ -187,7 +187,7 @@ export default async function Home({ searchParams }: {
                 </nav>
               )}
             </div>
-            <div className="shop-grid">
+            <div className={`shop-grid${shops.length === 1 ? " solo" : ""}`}>
               {shops.map((shop) => (
                 // An article, not a Link: the rating below is its own link to
                 // the reviews, and an anchor inside an anchor is invalid HTML.
@@ -240,6 +240,15 @@ export default async function Home({ searchParams }: {
                   <b>{SHOPS_COPY.emptyTitle}</b>
                   <span>{SHOPS_COPY.emptyBody}</span>
                 </div>
+              )}
+              {/* An empty slot at the end of the list, on the last page only, so
+                  the grid reads as "these shops, and room for yours". */}
+              {page === pageCount && (
+                <Link className="shop-cta" href="/apply">
+                  <span className="shop-cta-plus" aria-hidden="true">+</span>
+                  <b>{SHOPS_COPY.joinTitle}</b>
+                  <span className="shop-cta-hint">{SHOPS_COPY.joinHint}</span>
+                </Link>
               )}
             </div>
             {pageCount > 1 && (

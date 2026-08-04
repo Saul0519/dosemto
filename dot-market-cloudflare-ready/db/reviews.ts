@@ -16,6 +16,8 @@ export type Review = {
   displayName: string;
   createdAt: string;
   updatedAt: string;
+  /** Set when the author attached a photo; the URL the page should render. */
+  imageUrl: string | null;
 };
 
 export type ShopRating = {
@@ -24,6 +26,11 @@ export type ShopRating = {
   count: number;
   completedOrders: number;
 };
+
+/** The public URL for a review photo, keyed on the order it belongs to. */
+function reviewImageUrl(orderId: string, imageKey: string | null) {
+  return imageKey ? `/api/review-images/${encodeURIComponent(orderId)}` : null;
+}
 
 async function getD1() {
   const { env } = await import("cloudflare:workers");
@@ -66,6 +73,8 @@ async function migrateReviewsTable() {
   ]);
   await db.prepare("ALTER TABLE reviews ADD COLUMN author_mc_uuid TEXT").run().catch(() => undefined);
   await db.prepare("ALTER TABLE reviews ADD COLUMN updated_at TEXT").run().catch(() => undefined);
+  // Optional photo of the finished work, stored in the bucket like shop images.
+  await db.prepare("ALTER TABLE reviews ADD COLUMN image_key TEXT").run().catch(() => undefined);
 }
 
 export type ReviewableOrder = {
@@ -118,11 +127,12 @@ export async function getReviewForOrder(orderId: string): Promise<Review | null>
   await ensureReviewsTable();
   const db = await getD1();
   const row = await db.prepare(
-    `SELECT id, order_id, rating, body, display_name, created_at, updated_at
+    `SELECT id, order_id, rating, body, display_name, created_at, updated_at, image_key
        FROM reviews WHERE order_id = ? AND status = 'visible'`,
   ).bind(orderId).first<{
     id: string; order_id: string; rating: number; body: string;
     display_name: string; created_at: string; updated_at: string | null;
+    image_key: string | null;
   }>().catch(() => null);
   if (!row) return null;
   return {
@@ -133,6 +143,7 @@ export async function getReviewForOrder(orderId: string): Promise<Review | null>
     displayName: row.display_name,
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? row.created_at,
+    imageUrl: reviewImageUrl(row.order_id, row.image_key),
   };
 }
 
@@ -148,6 +159,10 @@ export async function saveReview(input: {
   authorName: string;
   rating: number;
   body: string;
+  /** A newly uploaded photo's object key, or undefined to leave the photo be. */
+  imageKey?: string;
+  /** True when the author asked for the existing photo to come off. */
+  removeImage?: boolean;
 }): Promise<Outcome> {
   const order = await getOrderForReview(input.orderId);
   if (!order) return { ok: false, error: "그런 주문번호가 없습니다.", status: 404 };
@@ -165,33 +180,68 @@ export async function saveReview(input: {
   const body = input.body.trim().slice(0, 1000);
 
   const db = await getD1();
+  const previousKey = await currentImageKey(input.orderId);
+
+  // A replaced or removed photo has to leave the bucket too, or every edit
+  // strands a file nothing points at.
+  const nextKey = input.imageKey ?? (input.removeImage ? null : previousKey);
+  if (previousKey && previousKey !== nextKey) await deleteStoredImage(previousKey);
+
   const existing = await getReviewForOrder(input.orderId);
   if (existing) {
     await db.prepare(
-      `UPDATE reviews SET rating = ?, body = ?, display_name = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE order_id = ? AND author_mc_uuid = ?`,
-    ).bind(rating, body, input.authorName, input.orderId, input.authorId).run();
+      `UPDATE reviews SET rating = ?, body = ?, display_name = ?, image_key = ?,
+        updated_at = CURRENT_TIMESTAMP WHERE order_id = ? AND author_mc_uuid = ?`,
+    ).bind(rating, body, input.authorName, nextKey, input.orderId, input.authorId).run();
     return { ok: true };
   }
 
   await db.prepare(
-    `INSERT INTO reviews (id, order_id, shop_id, rating, body, display_name, author_mc_uuid, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-  ).bind(crypto.randomUUID(), input.orderId, order.shopId, rating, body, input.authorName, input.authorId)
-    .run();
+    `INSERT INTO reviews (id, order_id, shop_id, rating, body, display_name, author_mc_uuid, image_key, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+  ).bind(crypto.randomUUID(), input.orderId, order.shopId, rating, body, input.authorName,
+    input.authorId, nextKey).run();
   return { ok: true };
+}
+
+/** The stored photo for an order, whatever the review's visibility. */
+export async function currentImageKey(orderId: string) {
+  await ensureReviewsTable();
+  const row = await getD1().then((db) => db.prepare(
+    "SELECT image_key FROM reviews WHERE order_id = ?",
+  ).bind(orderId).first<{ image_key: string | null }>()).catch(() => null);
+  return row?.image_key ?? null;
+}
+
+/** Best effort: a file left behind is untidy, a failed request is worse. */
+export async function deleteStoredImage(objectKey: string | null) {
+  if (!objectKey) return;
+  const { env } = await import("cloudflare:workers");
+  await env.BUCKET?.delete(objectKey).catch(() => undefined);
+}
+
+/** The object key to serve for a review, only while it is publicly visible. */
+export async function getVisibleReviewImageKey(orderId: string) {
+  await ensureReviewsTable();
+  const row = await getD1().then((db) => db.prepare(
+    `SELECT r.image_key FROM reviews r JOIN shops s ON s.id = r.shop_id
+      WHERE r.order_id = ? AND r.status = 'visible' AND s.active = 1`,
+  ).bind(orderId).first<{ image_key: string | null }>()).catch(() => null);
+  return row?.image_key ?? null;
 }
 
 /** Only the author can remove a review; a shop cannot delete a bad one. */
 export async function deleteReview(orderId: string, authorId: string): Promise<Outcome> {
   await ensureReviewsTable();
   const db = await getD1();
+  const imageKey = await currentImageKey(orderId);
   const removed = await db.prepare(
     "DELETE FROM reviews WHERE order_id = ? AND author_mc_uuid = ?",
   ).bind(orderId, authorId).run().catch(() => null);
   if (!removed?.meta.changes) {
     return { ok: false, error: "지울 후기를 찾지 못했습니다.", status: 404 };
   }
+  await deleteStoredImage(imageKey);
   return { ok: true };
 }
 
@@ -199,11 +249,12 @@ export async function listShopReviews(shopId: string, limit = 30): Promise<Revie
   await ensureReviewsTable();
   const db = await getD1();
   const rows = await db.prepare(
-    `SELECT id, order_id, rating, body, display_name, created_at, updated_at FROM reviews
+    `SELECT id, order_id, rating, body, display_name, created_at, updated_at, image_key FROM reviews
       WHERE shop_id = ? AND status = 'visible' ORDER BY created_at DESC LIMIT ?`,
   ).bind(shopId, limit).all<{
     id: string; order_id: string; rating: number; body: string;
     display_name: string; created_at: string; updated_at: string | null;
+    image_key: string | null;
   }>().catch(() => ({ results: [] }));
   return rows.results.map((row) => ({
     id: row.id,
@@ -213,6 +264,7 @@ export async function listShopReviews(shopId: string, limit = 30): Promise<Revie
     displayName: row.display_name,
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? row.created_at,
+    imageUrl: reviewImageUrl(row.order_id, row.image_key),
   }));
 }
 
@@ -259,9 +311,11 @@ export async function setReviewHidden(orderId: string, hidden: boolean): Promise
 export async function purgeReview(orderId: string): Promise<Outcome> {
   await ensureReviewsTable();
   const db = await getD1();
+  const imageKey = await currentImageKey(orderId);
   const removed = await db.prepare("DELETE FROM reviews WHERE order_id = ?")
     .bind(orderId).run().catch(() => null);
   if (!removed?.meta.changes) return { ok: false, error: "그 주문의 후기를 찾지 못했습니다.", status: 404 };
+  await deleteStoredImage(imageKey);
   return { ok: true };
 }
 
@@ -273,12 +327,13 @@ export async function listAllReviews(limit = 100): Promise<ModeratedReview[]> {
   const db = await getD1();
   const rows = await db.prepare(
     `SELECT r.id, r.order_id, r.rating, r.body, r.display_name, r.created_at,
-            r.updated_at, r.status, s.name AS shop_name
+            r.updated_at, r.status, r.image_key, s.name AS shop_name
        FROM reviews r JOIN shops s ON s.id = r.shop_id
       ORDER BY r.created_at DESC LIMIT ?`,
   ).bind(limit).all<{
     id: string; order_id: string; rating: number; body: string; display_name: string;
-    created_at: string; updated_at: string | null; status: string; shop_name: string;
+    created_at: string; updated_at: string | null; status: string;
+    image_key: string | null; shop_name: string;
   }>().catch(() => ({ results: [] }));
   return rows.results.map((row) => ({
     id: row.id,
@@ -288,6 +343,7 @@ export async function listAllReviews(limit = 100): Promise<ModeratedReview[]> {
     displayName: row.display_name,
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? row.created_at,
+    imageUrl: reviewImageUrl(row.order_id, row.image_key),
     shopName: row.shop_name,
     hidden: row.status !== "visible",
   }));

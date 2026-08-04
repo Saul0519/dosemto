@@ -349,12 +349,14 @@ img { max-width: 100%; }
 .shop-card:hover { border-color: var(--ink); transform: translateY(-2px); }
 
 /* A lone shop stranded in a three-up grid reads as a mistake. Lay it out wide. */
-.shop-grid:has(> .shop-card:only-child) { grid-template-columns: minmax(0, 1fr); }
-.shop-card:only-child { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); }
-.shop-card:only-child .shop-art { aspect-ratio: 16 / 10; border-bottom: 0; border-right: 1px solid var(--line); }
-.shop-card:only-child .shop-card-copy { padding: clamp(24px, 3vw, 40px); align-content: center; }
-.shop-card:only-child .shop-card-copy h3 { font-size: 28px; }
-.shop-card:only-child .shop-card-copy p { min-height: 0; font-size: 14px; }
+/* One shop gets a wide card. Driven by a class rather than :only-child, since
+   the list also carries a "join us" tile that would count as a sibling. */
+.shop-grid.solo { grid-template-columns: minmax(0, 1fr); }
+.shop-grid.solo .shop-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); }
+.shop-grid.solo .shop-card .shop-art { aspect-ratio: 16 / 10; border-bottom: 0; border-right: 1px solid var(--line); }
+.shop-grid.solo .shop-card .shop-card-copy { padding: clamp(24px, 3vw, 40px); align-content: center; }
+.shop-grid.solo .shop-card .shop-card-copy h3 { font-size: 28px; }
+.shop-grid.solo .shop-card .shop-card-copy p { min-height: 0; font-size: 14px; }
 
 .shop-art { aspect-ratio: 4 / 3; overflow: hidden; border-bottom: 1px solid var(--line); }
 .shop-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -1026,8 +1028,8 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
   .market-facts .wrap > div:nth-child(odd) { padding-left: 0; border-left: 0; }
   .market-facts .wrap > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
   .steps, .shop-grid { grid-template-columns: 1fr; }
-  .shop-card:only-child { grid-template-columns: 1fr; }
-  .shop-card:only-child .shop-art { aspect-ratio: 4 / 3; border-right: 0; border-bottom: 1px solid var(--line); }
+  .shop-grid.solo .shop-card { grid-template-columns: 1fr; }
+  .shop-grid.solo .shop-card .shop-art { aspect-ratio: 4 / 3; border-right: 0; border-bottom: 1px solid var(--line); }
   .service-thumbnails { grid-template-columns: repeat(5, 1fr); }
   .swatch-wall { grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); }
 
@@ -1482,3 +1484,181 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 }
 .deadline-grid.two button b { font-size: 13px; font-weight: 700; }
 .deadline-grid.two button span { font-size: 11px; opacity: .72; line-height: 1.4; }
+
+/* ── 후기 사진 ───────────────────────────────────────────────────────────
+   Optional, and the review has to read fine without one — so the photo sits
+   under the text rather than beside it. */
+
+.review-photo { display: grid; gap: 8px; }
+.review-photo-head { display: grid; gap: 3px; }
+.review-photo-head > span { font-size: 13px; font-weight: 700; }
+.review-photo-head > span small { margin-left: 5px; color: var(--ink-3); font-size: 11px; font-weight: 500; }
+.review-photo-head > small { color: var(--ink-3); font-size: 11px; line-height: 1.5; }
+
+.review-photo-pick {
+  display: inline-flex !important;
+  align-items: center;
+  justify-self: start;
+  padding: 9px 15px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.review-photo-pick:hover { border-color: var(--ink); }
+.review-photo-pick input { display: none; }
+
+.review-photo-preview { display: grid; gap: 8px; justify-items: start; }
+.review-photo-preview img {
+  max-width: min(100%, 320px);
+  max-height: 240px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  object-fit: contain;
+}
+.review-photo-preview button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--danger-ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.review-photo-link { display: inline-block; margin-top: 10px; }
+.review-photo-link img {
+  max-width: min(100%, 260px);
+  max-height: 200px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  object-fit: cover;
+  transition: border-color .18s ease;
+}
+.review-photo-link:hover img { border-color: var(--ink); }
+
+/* ── 입점 문의 칸 ────────────────────────────────────────────────────────
+   Sits in the shop grid as an empty slot, so the list reads as "these shops,
+   and room for yours". Dashed rather than solid: it is an invitation, not a
+   shop. A <details>, so the contact shows without any JavaScript. */
+
+.shop-cta {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 9px;
+  min-height: 220px;
+  padding: 28px 24px;
+  border: 1px dashed var(--line-3);
+  background: transparent;
+  color: inherit;
+  text-align: center;
+  text-decoration: none;
+  transition: border-color .18s ease, background .18s ease;
+}
+.shop-cta:hover { border-color: var(--ink); background: var(--paper-sunk); }
+.shop-cta:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+
+.shop-cta-plus {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--line-2);
+  border-radius: 50%;
+  color: var(--ink-3);
+  font-size: 24px;
+  line-height: 1;
+}
+.shop-cta:hover .shop-cta-plus { border-color: var(--ink); color: var(--ink); }
+.shop-cta b { font-family: var(--font-display); font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
+.shop-cta-hint { color: var(--ink-3); font-size: 12px; }
+
+/* The wide single-shop card and the invitation should not sit in one row. */
+.shop-grid.solo { grid-template-columns: minmax(0, 1fr) minmax(0, 0.5fr); }
+@media (max-width: 780px) {
+  .shop-grid.solo { grid-template-columns: 1fr; }
+}
+
+/* ── 입점 신청 ─────────────────────────────────────────────────────────── */
+
+.application-list { display: grid; gap: 10px; margin-bottom: 30px; }
+.application-list article {
+  padding: 15px 17px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  display: grid;
+  gap: 8px;
+}
+/* Read requests fade back so the unanswered ones stand out. */
+.application-list article.handled { border-style: dashed; background: var(--paper-sunk); opacity: .72; }
+
+.application-head { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
+.application-head b { font-size: 15px; }
+.application-head code { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+.application-head i { font-style: normal; font-size: 10px; font-weight: 700; color: var(--coral-ink); }
+.application-head em { font-style: normal; font-size: 10px; font-weight: 700; color: var(--ink-3); }
+
+.application-who { display: flex; align-items: baseline; flex-wrap: wrap; gap: 9px; }
+.application-who span { font-size: 12px; font-weight: 700; }
+.application-who code { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); user-select: all; }
+.application-who time { margin-left: auto; color: var(--ink-3); font-family: var(--font-mono); font-size: 11px; }
+
+.application-list p { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.7; white-space: pre-line; }
+.application-list p.application-note { padding-left: 10px; border-left: 2px solid var(--line-2); color: var(--ink-3); font-size: 12px; }
+
+.application-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.application-actions button {
+  padding: 6px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--paper);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.application-actions button:hover:not(:disabled) { border-color: var(--ink); }
+.application-actions button.danger { color: var(--danger-ink); }
+.application-actions button:disabled { opacity: .5; cursor: default; }
+
+.apply-form { display: grid; gap: 18px; }
+.apply-form label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
+.apply-form label small { color: var(--ink-3); font-weight: 500; }
+.apply-form input, .apply-form textarea {
+  padding: 11px 13px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--paper);
+  font: inherit;
+  font-weight: 400;
+}
+.apply-form input:focus, .apply-form textarea:focus { outline: 2px solid var(--ink); outline-offset: -1px; }
+
+/* Application form: identity first, then the shop. */
+.apply-group { display: grid; gap: 16px; padding: 0; border: 0; margin: 0; }
+.apply-group legend {
+  padding: 0 0 4px;
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+.apply-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 560px) { .apply-pair { grid-template-columns: 1fr; } }
+
+/* The one field they do not fill in. */
+.apply-auto {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper-sunk);
+}
+.apply-auto span { color: var(--ink-3); font-size: 11px; font-weight: 700; letter-spacing: .06em; }
+.apply-auto b { font-size: 14px; }
+.apply-auto code { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+.apply-auto small { color: var(--ink-3); font-size: 11px; line-height: 1.5; font-weight: 400; }
+
+.application-who small { color: var(--ink-2); font-size: 11px; }

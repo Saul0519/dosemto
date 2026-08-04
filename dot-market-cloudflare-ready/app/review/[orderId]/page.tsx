@@ -108,6 +108,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ orderId
           initialRating={existing?.rating ?? 0}
           initialBody={existing?.body ?? ""}
           hasExisting={Boolean(existing)}
+          initialPhotoUrl={existing?.imageUrl ?? null}
         />
       </div>
     </Shell>

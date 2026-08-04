@@ -1,13 +1,16 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useState } from "react";
 import { readResult } from "../../read-result";
 import Link from "next/link";
 
 const RATINGS = [1, 2, 3, 4, 5];
 
+/** Matches the ceiling the review route enforces. */
+const MAX_PHOTO_BYTES = 6 * 1024 * 1024;
+
 export default function ReviewForm({
-  orderId, shopSlug, playerName, initialRating, initialBody, hasExisting,
+  orderId, shopSlug, playerName, initialRating, initialBody, hasExisting, initialPhotoUrl,
 }: {
   orderId: string;
   shopSlug: string;
@@ -15,12 +18,40 @@ export default function ReviewForm({
   initialRating: number;
   initialBody: string;
   hasExisting: boolean;
+  /** The photo already attached, if the author added one before. */
+  initialPhotoUrl: string | null;
 }) {
   const [rating, setRating] = useState(initialRating);
   const [body, setBody] = useState(initialBody);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState<"saved" | "deleted" | null>(null);
+  // The preview URL is made when the file is chosen rather than in an effect,
+  // so the two can never disagree about which file is on screen.
+  const [photo, setPhoto] = useState<{ file: File; url: string } | null>(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
+
+  const shownPhoto = photo?.url ?? (removePhoto ? null : initialPhotoUrl);
+
+  const pickPhoto = (event: ChangeEvent<HTMLInputElement>) => {
+    const chosen = event.target.files?.[0] ?? null;
+    event.target.value = "";
+    if (!chosen) return;
+    if (chosen.size > MAX_PHOTO_BYTES) {
+      setError("사진은 6MB까지 올릴 수 있습니다.");
+      return;
+    }
+    if (photo) URL.revokeObjectURL(photo.url);
+    setError("");
+    setRemovePhoto(false);
+    setPhoto({ file: chosen, url: URL.createObjectURL(chosen) });
+  };
+
+  const clearPhoto = () => {
+    if (photo) URL.revokeObjectURL(photo.url);
+    setPhoto(null);
+    setRemovePhoto(true);
+  };
 
   const send = async (method: "POST" | "DELETE") => {
     setBusy(true); setError("");
@@ -98,6 +129,32 @@ export default function ReviewForm({
           placeholder="어떤 점이 좋았는지, 아쉬웠는지 적어주세요."
         />
       </label>
+
+      <div className="review-photo">
+        <div className="review-photo-head">
+          <span>사진 <small>선택</small></span>
+          <small>완성된 그림을 찍어 올리면 다음 손님에게 도움이 됩니다. 6MB까지.</small>
+        </div>
+        {shownPhoto ? (
+          <div className="review-photo-preview">
+            {/* A local object URL before saving, the stored photo after. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={shownPhoto} alt="후기에 첨부한 사진"/>
+            <button
+              type="button"
+              onClick={clearPhoto}
+              disabled={busy}
+            >
+              사진 빼기
+            </button>
+          </div>
+        ) : (
+          <label className="review-photo-pick">
+            사진 고르기
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={pickPhoto} disabled={busy}/>
+          </label>
+        )}
+      </div>
 
       <button className="btn btn-solid" disabled={busy}>
         {busy ? "저장 중…" : hasExisting ? "후기 수정" : "후기 남기기"}

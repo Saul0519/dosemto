@@ -158,6 +158,13 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
                       <time dateTime={review.createdAt}>{review.createdAt.slice(0, 10)}</time>
                     </div>
                     {review.body && <p>{review.body}</p>}
+                    {review.imageUrl && (
+                      <a className="review-photo-link" href={review.imageUrl} target="_blank" rel="noreferrer">
+                        {/* Uploaded by the customer who placed the order. */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={review.imageUrl} alt={`${review.displayName}님이 올린 사진`} loading="lazy"/>
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>

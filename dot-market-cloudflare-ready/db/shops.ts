@@ -561,13 +561,18 @@ export async function deleteShopCascade(id: string) {
     "SELECT preview_object_key, original_object_key FROM orders WHERE shop_id = ?",
   ).bind(id).all<{ preview_object_key: string; original_object_key: string | null }>().catch(() => ({ results: [] }));
 
+  const reviews = await db.prepare("SELECT COUNT(*) AS count FROM reviews WHERE shop_id = ?")
+    .bind(id).first<{ count: number }>().catch(() => null);
+  // Photos customers attached to their reviews are stored files like any other.
+  const reviewImages = await db.prepare(
+    "SELECT image_key FROM reviews WHERE shop_id = ? AND image_key IS NOT NULL",
+  ).bind(id).all<{ image_key: string }>().catch(() => ({ results: [] as { image_key: string }[] }));
+
   const objectKeys = [
     ...images.results.map((row) => row.object_key),
     ...orders.results.flatMap((row) => [row.preview_object_key, row.original_object_key]),
+    ...reviewImages.results.map((row) => row.image_key),
   ].filter((key): key is string => Boolean(key));
-
-  const reviews = await db.prepare("SELECT COUNT(*) AS count FROM reviews WHERE shop_id = ?")
-    .bind(id).first<{ count: number }>().catch(() => null);
 
   await db.batch([
     db.prepare("DELETE FROM shop_images WHERE shop_id = ?").bind(id),

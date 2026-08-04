@@ -96,6 +96,8 @@ export const SHOPS_COPY = {
   note: "샵마다 장당 단가와 연락 채널이 따로 있습니다. 카드에 주문 가능이 붙은 곳이 지금 주문을 넣을 수 있는 샵입니다.",
   emptyTitle: "지금은 등록된 샵이 없습니다.",
   emptyBody: "샵이 열리면 이 목록에 뜹니다.",
+  joinTitle: "샵 입점하기",
+  joinHint: "여기에 내 공방을 올리고 싶다면",
 };
 
 export const FAQ = [
