@@ -114,6 +114,11 @@ function formatWon(value: number) {
   return `${Math.round(value / 100) * 100}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "원";
 }
 
+/** Kept just under the route's own 20MB ceiling, which also counts form fields. */
+const MAX_ORDER_BYTES = 19 * 1024 * 1024;
+/** Above this the original is not worth storing alongside the pattern. */
+const MAX_ORIGINAL_BYTES = 8 * 1024 * 1024;
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
@@ -330,9 +335,21 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, userName, login
       setOrderMessage("주문 이미지를 만드는 중 문제가 생겼습니다.");
       return;
     }
+    // The original is a courtesy copy for the painter; the converted pattern is
+    // the order. When the two together will not fit, send the pattern alone
+    // rather than failing the whole order — and say so, because the shop is
+    // getting less than the customer chose to give it.
+    const keepsOriginal = file.size <= MAX_ORIGINAL_BYTES;
+    const withOriginal = keepsOriginal && previewBlob.size + file.size <= MAX_ORDER_BYTES;
+    if (previewBlob.size > MAX_ORDER_BYTES) {
+      setOrderState("error");
+      setOrderMessage("변환한 도안이 너무 큽니다. 가로 칸 수를 줄이고 다시 시도해 주세요.");
+      return;
+    }
+
     const form = new FormData();
     form.append("preview", previewBlob, `converted_${gridX}x${gridY}.png`);
-    if (file.size <= 8 * 1024 * 1024) form.append("original", file, file.name);
+    if (withOriginal) form.append("original", file, file.name);
     form.append("note", note.trim());
     form.append("gridX", String(gridX));
     form.append("gridY", String(gridY));
@@ -345,10 +362,26 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, userName, login
     form.append("captchaToken", captchaToken);
     try {
       const response = await fetch("/api/orders", { method: "POST", body: form });
-      const result = await response.json();
+      // Not every failure is ours: the framework rejects an oversized body with
+      // plain text, and parsing that as JSON used to surface as
+      // "Unexpected token 'P'" — a message about our code, shown to a customer.
+      const text = await response.text();
+      let result: { error?: string; orderId?: string } = {};
+      try {
+        result = text ? JSON.parse(text) as typeof result : {};
+      } catch {
+        result = {
+          error: response.status === 413
+            ? "사진 용량이 너무 큽니다. 더 작은 사진으로 다시 시도해 주세요."
+            : `주문을 보내지 못했습니다. 잠시 후 다시 시도해 주세요. (서버 응답 ${response.status})`,
+        };
+      }
       if (!response.ok) throw new Error(result.error || "주문 전송에 실패했습니다.");
       setOrderState("sent");
-      setOrderMessage(`주문이 전송되었습니다. 주문번호 ${result.orderId}`);
+      setOrderMessage(
+        `주문이 전송되었습니다. 주문번호 ${result.orderId}`
+        + (keepsOriginal && !withOriginal ? " · 원본 사진은 용량이 커서 도안만 전달했습니다." : ""),
+      );
     } catch (error) {
       setOrderState("error");
       setOrderMessage(error instanceof Error ? error.message : "주문 전송에 실패했습니다.");

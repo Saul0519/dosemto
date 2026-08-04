@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
+import { readResult } from "../read-result";
 
 type Shop = { id: string; slug: string; name: string; description: string; managerEmail: string; active: boolean; webhookConfigured: boolean };
 type ModeratedReview = {
@@ -34,7 +35,7 @@ export default function ControlPanel({ initialShops, initialReviews }: {
     event.preventDefault(); setBusy(true); say("");
     try {
       const response = await fetch("/api/control/shops", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(form) });
-      const result = await response.json(); if (!response.ok) throw new Error(result.error);
+      const result = await readResult<{ shop: Shop }>(response, "샵을 만들지 못했습니다.");
       setShops((current) => [...current, result.shop]);
       setDrafts((current) => ({ ...current, [result.shop.id]: { managerEmail: result.shop.managerEmail, active: result.shop.active } }));
       setForm({ name: "", slug: "", managerEmail: "", description: "" }); say("새 샵을 만들고 관리자를 지정했습니다.");
@@ -46,7 +47,7 @@ export default function ControlPanel({ initialShops, initialReviews }: {
     const draft = drafts[shop.id]; if (!draft) return; setBusy(true); say("");
     try {
       const response = await fetch(`/api/control/shops/${shop.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(draft) });
-      const result = await response.json(); if (!response.ok) throw new Error(result.error);
+      const result = await readResult<{ shop: Shop }>(response, "변경하지 못했습니다.");
       setShops((current) => current.map((item) => item.id === shop.id ? { ...item, ...result.shop } : item)); say(`${shop.name}의 관리자와 공개 상태를 저장했습니다.`);
     } catch (error) { say(error instanceof Error ? error.message : "변경하지 못했습니다.", "error"); }
     finally { setBusy(false); }
@@ -65,9 +66,7 @@ export default function ControlPanel({ initialShops, initialReviews }: {
     setBusy(true); say("");
     try {
       const response = await fetch(`/api/control/shops/${shop.id}?confirm=${encodeURIComponent(shop.slug)}`, { method: "DELETE" });
-      const text = await response.text();
-      const result = text ? JSON.parse(text) : {};
-      if (!response.ok) throw new Error(result.error || `삭제하지 못했습니다. (서버 응답 ${response.status})`);
+      const result = await readResult<{ removed: Record<string, number | string> }>(response, "삭제하지 못했습니다.");
       setShops((current) => current.filter((item) => item.id !== shop.id));
       setDrafts((current) => { const next = { ...current }; delete next[shop.id]; return next; });
       const r = result.removed;
@@ -84,9 +83,7 @@ export default function ControlPanel({ initialShops, initialReviews }: {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ hidden: !review.hidden }),
       });
-      const text = await response.text();
-      const result = text ? JSON.parse(text) : {};
-      if (!response.ok) throw new Error(result.error || "처리하지 못했습니다.");
+      await readResult(response, "처리하지 못했습니다.");
       setReviews((current) => current.map((item) =>
         item.orderId === review.orderId ? { ...item, hidden: !review.hidden } : item));
       say(review.hidden ? "후기를 다시 보이게 했습니다." : "후기를 숨겼습니다. 샵 페이지에는 숨긴 개수가 표시됩니다.");
@@ -105,9 +102,7 @@ export default function ControlPanel({ initialShops, initialReviews }: {
     setBusy(true); say("");
     try {
       const response = await fetch(`/api/control/reviews/${encodeURIComponent(review.orderId)}`, { method: "DELETE" });
-      const text = await response.text();
-      const result = text ? JSON.parse(text) : {};
-      if (!response.ok) throw new Error(result.error || "지우지 못했습니다.");
+      await readResult(response, "지우지 못했습니다.");
       setReviews((current) => current.filter((item) => item.orderId !== review.orderId));
       say(`${review.orderId} 후기를 완전히 삭제했습니다.`);
     } catch (error) { say(error instanceof Error ? error.message : "지우지 못했습니다.", "error"); }

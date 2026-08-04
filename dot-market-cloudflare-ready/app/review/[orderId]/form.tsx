@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { readResult } from "../../read-result";
 import Link from "next/link";
 
 const RATINGS = [1, 2, 3, 4, 5];
@@ -30,9 +31,7 @@ export default function ReviewForm({
           ? { headers: { "content-type": "application/json" }, body: JSON.stringify({ rating, body }) }
           : {}),
       });
-      const text = await response.text();
-      const result = text ? JSON.parse(text) : {};
-      if (!response.ok) throw new Error(result.error || `처리하지 못했습니다. (서버 응답 ${response.status})`);
+      await readResult(response, "처리하지 못했습니다.");
       setDone(method === "POST" ? "saved" : "deleted");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "처리하지 못했습니다.");

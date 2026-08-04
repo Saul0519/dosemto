@@ -2,6 +2,7 @@
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { readResult } from "../read-result";
 import { DEADLINE_CHOICES, deadlineLabel } from "../../db/deadlines";
 
 type Pricing = { tilePrice: number; deadlineMultipliers: Record<string, number> };
@@ -51,24 +52,6 @@ type ManagedOrder = {
 // A handler that throws before it writes a body leaves an empty 500 behind, and
 // response.json() then fails with a parse error that hides the real cause. Read
 // the body as text first and report what actually came back.
-async function readResult(response: Response, fallback: string) {
-  const text = await response.text();
-  if (!text) {
-    throw new Error(
-      response.ok
-        ? fallback
-        : `${fallback} (서버 응답 ${response.status}, 본문 없음 — Worker 로그를 확인해 주세요.)`,
-    );
-  }
-  let parsed: { error?: string; [key: string]: unknown };
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    throw new Error(`${fallback} (서버 응답 ${response.status})`);
-  }
-  if (!response.ok) throw new Error(parsed.error || fallback);
-  return parsed;
-}
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   new: "신규 접수",
