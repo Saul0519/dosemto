@@ -56,12 +56,17 @@ export default function ReviewForm({
   const send = async (method: "POST" | "DELETE") => {
     setBusy(true); setError("");
     try {
-      const response = await fetch(`/api/review/${encodeURIComponent(orderId)}`, {
-        method,
-        ...(method === "POST"
-          ? { headers: { "content-type": "application/json" }, body: JSON.stringify({ rating, body }) }
-          : {}),
-      });
+      // Multipart, because the photo travels with the rest of the review. The
+      // browser sets the boundary itself, so no content-type is passed here.
+      let form: FormData | undefined;
+      if (method === "POST") {
+        form = new FormData();
+        form.set("rating", String(rating));
+        form.set("body", body);
+        if (photo) form.set("photo", photo.file);
+        if (removePhoto) form.set("removePhoto", "1");
+      }
+      const response = await fetch(`/api/review/${encodeURIComponent(orderId)}`, { method, body: form });
       await readResult(response, "처리하지 못했습니다.");
       setDone(method === "POST" ? "saved" : "deleted");
     } catch (caught) {
