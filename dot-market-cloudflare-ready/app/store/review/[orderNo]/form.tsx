@@ -53,24 +53,32 @@ export default function StoreReviewForm({
 
   return (
     <form className="review-form" onSubmit={submit}>
-      <fieldset className="star-pick">
+      {/* Same picker as the shop review form: one row of stars that fill in, not
+          five stacked radio buttons. */}
+      <fieldset className="rating-picker">
         <legend>별점</legend>
         {[1, 2, 3, 4, 5].map((value) => (
-          <label key={value} className={value <= rating ? "on" : ""}>
-            <input
-              type="radio"
-              name="rating"
-              value={value}
-              checked={rating === value}
-              onChange={() => { setRating(value); setError(""); }}
-            />
-            <span aria-hidden="true">★</span>
-            <b>{value}점</b>
-          </label>
+          <button
+            type="button"
+            key={value}
+            className={value <= rating ? "on" : ""}
+            aria-label={`${value}점`}
+            aria-pressed={value === rating}
+            onClick={() => { setRating(value); setError(""); }}
+          >
+            ★
+          </button>
         ))}
+        <span>{rating > 0 ? `${rating}점` : "고르지 않음"}</span>
       </fieldset>
 
-      <label className="review-body">
+      <div className="review-author">
+        <span>표시할 이름</span>
+        <b>{buyerName}</b>
+        <small>로그인한 디스코드 계정 이름입니다. 바꿀 수 없습니다.</small>
+      </div>
+
+      <label>
         하고 싶은 말 <small>선택</small>
         <textarea
           value={body}
@@ -79,21 +87,17 @@ export default function StoreReviewForm({
           rows={5}
           placeholder="써보니 어땠는지 적어주세요. 다음 사람이 고르는 데 도움이 됩니다."
         />
-        <small>{buyerName} 이름으로 올라갑니다.</small>
       </label>
 
-      {error && <p className="action-error">{error}</p>}
-
-      <div className="review-actions">
-        {hasExisting && (
-          <button type="button" className="btn btn-line danger" onClick={remove} disabled={busy}>
-            후기 지우기
-          </button>
-        )}
-        <button type="submit" className="btn btn-solid" disabled={busy}>
-          {busy ? "저장 중…" : hasExisting ? "후기 고치기" : "후기 남기기"}
+      <button className="btn btn-solid" disabled={busy}>
+        {busy ? "저장 중…" : hasExisting ? "후기 고치기" : "후기 남기기"}
+      </button>
+      {hasExisting && (
+        <button type="button" className="btn btn-line danger" onClick={remove} disabled={busy}>
+          후기 지우기
         </button>
-      </div>
+      )}
+      {error && <p className="action-error">{error}</p>}
     </form>
   );
 }
