@@ -3,6 +3,8 @@ import { deadlineLabel } from "../../db/deadlines";
 import { getUser } from "../session";
 import { listOrdersForUser } from "../../db/orders";
 import { getReviewForOrder } from "../../db/reviews";
+import { listPurchasesForUser } from "../../db/store";
+import { getReviewForPurchase } from "../../db/store-reviews";
 import { SITE } from "../site-content";
 import AccountChip from "../account-chip";
 
@@ -46,11 +48,19 @@ export default async function MyOrdersPage() {
     );
   }
 
-  const orders = await listOrdersForUser(user.id).catch(() => []);
+  const [orders, purchases] = await Promise.all([
+    listOrdersForUser(user.id).catch(() => []),
+    listPurchasesForUser(user.id).catch(() => []),
+  ]);
   const reviews = await Promise.all(
     orders.map(async (order) => [order.id, await getReviewForOrder(order.id).catch(() => null)] as const),
   );
   const reviewed = new Map(reviews);
+  const storeReviews = await Promise.all(
+    purchases.map(async (purchase) =>
+      [purchase.orderNo, await getReviewForPurchase(purchase.orderNo).catch(() => null)] as const),
+  );
+  const storeReviewed = new Map(storeReviews);
 
   const spent = orders
     .filter((order) => order.status === "completed")
@@ -122,6 +132,52 @@ export default async function MyOrdersPage() {
                 );
               })}
             </ul>
+          )}
+
+          {purchases.length > 0 && (
+            <>
+              <div className="section-head" id="store-purchases">
+                <p className="eyebrow">MY STORE</p>
+                <h2>상점 구매</h2>
+                <p>받으신 뒤에 후기를 남길 수 있습니다.</p>
+              </div>
+              <ul className="my-purchases">
+                {purchases.map((purchase) => {
+                  const review = storeReviewed.get(purchase.orderNo) ?? null;
+                  return (
+                    <li key={purchase.id}>
+                      <div className="my-purchase-head">
+                        <b>{purchase.itemName}</b>
+                        <code>{purchase.planLabel}</code>
+                        <span className={purchase.handled ? "tone-done" : "tone-new"}>
+                          {purchase.handled ? "전달 완료" : "처리 대기"}
+                        </span>
+                      </div>
+                      <dl>
+                        <div><dt>주문번호</dt><dd><code>{purchase.orderNo}</code></dd></div>
+                        <div><dt>금액</dt><dd>{won(purchase.price)}</dd></div>
+                        <div><dt>받을 계정</dt><dd>{purchase.mcNick}</dd></div>
+                        <div><dt>요청일</dt><dd>{purchase.createdAt.slice(0, 10)}</dd></div>
+                      </dl>
+                      <div className="my-order-actions">
+                        {/* The purchase record outlives the product, so both links
+                            only make sense while the product is still there. */}
+                        {purchase.itemExists ? (
+                          <>
+                            <Link href={`/store/${purchase.itemId}`}>상품 보기</Link>
+                            {purchase.handled && (
+                              <Link href={`/store/review/${purchase.orderNo}`}>
+                                {review ? `후기 수정 (★ ${review.rating})` : "후기 남기기"}
+                              </Link>
+                            )}
+                          </>
+                        ) : <span className="my-order-gone">더 이상 팔지 않는 상품입니다</span>}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
           )}
         </div>
       </main>

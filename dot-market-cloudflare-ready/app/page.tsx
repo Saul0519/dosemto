@@ -7,6 +7,8 @@ import { SHOPS_PER_PAGE, SHOP_SORTS, parsePage, parseSort, sortShops } from "../
 import AccountChip from "./account-chip";
 import ShuffleButton from "./shuffle-button";
 import { getUser } from "./session";
+import { getPopup } from "../db/popup";
+import EntryPopup from "./entry-popup";
 import { DOSE_DISPLAY_FAMILIES } from "./dose-palette";
 import {
   FACTS,
@@ -33,7 +35,7 @@ export default async function Home({ searchParams }: {
   const params = await searchParams;
   const sort = parseSort(params.sort);
 
-  const [allShops, user, ratings, activeOrders, featureRanks] = await Promise.all([
+  const [allShops, user, ratings, activeOrders, featureRanks, popup] = await Promise.all([
     listPublicShops().catch(() => []),
     getUser().catch(() => null),
     listShopRatings().catch(() => new Map()),
@@ -41,6 +43,7 @@ export default async function Home({ searchParams }: {
     // Read here and used only for sorting. It is never rendered and never
     // reaches a client component, so nothing on the page reveals it exists.
     listFeatureRanks().catch(() => new Map<string, number>()),
+    getPopup().catch(() => null),
   ]);
 
   // The shuffle lives in the URL: this page renders more than once per request,
@@ -75,6 +78,7 @@ export default async function Home({ searchParams }: {
 
   return (
     <div className="market-page">
+      {popup && <EntryPopup popup={popup}/>}
       <header className="market-header">
         <div className="wrap">
           <Link className="brand" href="/">

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { listActiveItems } from "../../db/store";
-import { getUser } from "../session";
+import { listItemRatings } from "../../db/store-reviews";
 import { SITE } from "../site-content";
 import StoreList from "./list";
 
@@ -9,9 +9,9 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "상점" };
 
 export default async function StorePage() {
-  const [items, user] = await Promise.all([
+  const [items, ratings] = await Promise.all([
     listActiveItems().catch(() => []),
-    getUser().catch(() => null),
+    listItemRatings().catch(() => new Map()),
   ]);
 
   return (
@@ -36,8 +36,8 @@ export default async function StorePage() {
               <p className="eyebrow">STORE</p>
               <h2>상점</h2>
               <p>
-                게임 안 화폐로 사는 기간제 상품입니다. 사이트에서는 결제하지 않습니다 —
-                구매를 누르면 운영자에게 알림이 가고, 거래는 게임 안에서 이뤄집니다.
+                인게임 머니로 사는 기간제 상품입니다. 구매 요청을 넣으면 운영자가 연락해
+                돈을 받고, 모드 파일과 라이선스 코드를 보내드립니다.
               </p>
             </div>
 
@@ -47,7 +47,7 @@ export default async function StorePage() {
                 <span>상품이 올라오면 여기 표시됩니다.</span>
               </div>
             ) : (
-              <StoreList items={items} signedIn={Boolean(user)} buyerName={user?.name ?? ""}/>
+              <StoreList items={items} ratings={ratings}/>
             )}
           </div>
         </section>

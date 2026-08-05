@@ -1,15 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { ChangeEvent, useState } from "react";
 import { readResult } from "../read-result";
-import { StoreItem, StorePurchase } from "../../db/store";
-import { MAX_PLANS, StorePlan, discountPercent, isOnSale, won } from "../../db/store-plans";
+import type { StoreItem, StorePurchase } from "../../db/store";
+import type { ModeratedStoreReview } from "../../db/store-reviews";
+import {
+  MAX_ITEM_IMAGES, MAX_PLANS, SALE_COLOURS, StorePlan,
+  discountPercent, isOnSale, readableOn, won,
+} from "../../db/store-plans";
 
 export default function StorePanel({
-  initialItems, initialPurchases, initialChannelId, say, busy, setBusy,
+  initialItems, initialPurchases, initialReviews, initialChannelId, say, busy, setBusy,
 }: {
   initialItems: StoreItem[];
   initialPurchases: StorePurchase[];
+  initialReviews: ModeratedStoreReview[];
   initialChannelId: string;
   say: (text: string, kind?: "success" | "error") => void;
   busy: boolean;
@@ -17,6 +22,7 @@ export default function StorePanel({
 }) {
   const [items, setItems] = useState(initialItems);
   const [purchases, setPurchases] = useState(initialPurchases);
+  const [reviews, setReviews] = useState(initialReviews);
   const [channelId, setChannelId] = useState(initialChannelId);
   const [savedChannelId, setSavedChannelId] = useState(initialChannelId);
   const [newName, setNewName] = useState("");
@@ -55,13 +61,41 @@ export default function StorePanel({
   }, "저장하지 못했습니다.");
 
   const removeItem = (item: StoreItem) => {
-    if (!window.confirm(`"${item.name}"을(를) 지웁니다. 되돌릴 수 없습니다.`)) return;
+    if (!window.confirm(`"${item.name}"을(를) 지웁니다. 사진과 후기도 함께 사라지고 되돌릴 수 없습니다.\n구매 기록은 남습니다.`)) return;
     void run(async () => {
       const response = await fetch(`/api/control/store/items/${item.id}`, { method: "DELETE" });
       const result = await readResult<{ items: StoreItem[] }>(response, "지우지 못했습니다.");
       setItems(result.items);
       say("상품을 지웠습니다.");
     }, "지우지 못했습니다.");
+  };
+
+  const uploadShots = (item: StoreItem, event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.target;
+    const files = Array.from(input.files ?? []);
+    if (files.length === 0) return;
+    const form = new FormData();
+    files.forEach((file) => form.append("images", file));
+    void run(async () => {
+      const response = await fetch(`/api/control/store/items/${item.id}/images`, { method: "POST", body: form });
+      const result = await readResult<{ items: StoreItem[] }>(response, "사진을 올리지 못했습니다.");
+      // Only the pictures come back from the server; anything being typed stays.
+      applyImages(result.items);
+      say("사진을 올렸습니다.");
+    }, "사진을 올리지 못했습니다.").finally(() => { input.value = ""; });
+  };
+
+  const removeShot = (item: StoreItem, imageId: string) => run(async () => {
+    const response = await fetch(`/api/control/store/items/${item.id}/images/${imageId}`, { method: "DELETE" });
+    const result = await readResult<{ items: StoreItem[] }>(response, "사진을 지우지 못했습니다.");
+    applyImages(result.items);
+    say("사진을 지웠습니다.");
+  }, "사진을 지우지 못했습니다.");
+
+  /** Takes the picture lists off the server copy and leaves every edited field alone. */
+  const applyImages = (fresh: StoreItem[]) => {
+    const byId = new Map(fresh.map((item) => [item.id, item.images] as const));
+    setItems((current) => current.map((item) => ({ ...item, images: byId.get(item.id) ?? item.images })));
   };
 
   const saveChannel = () => run(async () => {
@@ -83,6 +117,7 @@ export default function StorePanel({
     });
     const result = await readResult<{ purchases: StorePurchase[] }>(response, "처리하지 못했습니다.");
     setPurchases(result.purchases);
+    say(handled ? "전달 완료로 옮겼습니다. 이제 구매자가 후기를 남길 수 있습니다." : "다시 대기로 되돌렸습니다.");
   }, "처리하지 못했습니다.");
 
   const removePurchase = (purchase: StorePurchase) => {
@@ -91,6 +126,27 @@ export default function StorePanel({
       const response = await fetch(`/api/control/store/purchases/${purchase.id}`, { method: "DELETE" });
       const result = await readResult<{ purchases: StorePurchase[] }>(response, "지우지 못했습니다.");
       setPurchases(result.purchases);
+    }, "지우지 못했습니다.");
+  };
+
+  const toggleReview = (review: ModeratedStoreReview) => run(async () => {
+    const response = await fetch(`/api/control/store/reviews/${encodeURIComponent(review.orderNo)}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ hidden: !review.hidden }),
+    });
+    const result = await readResult<{ reviews: ModeratedStoreReview[] }>(response, "바꾸지 못했습니다.");
+    setReviews(result.reviews);
+    say(review.hidden ? "후기를 다시 보이게 했습니다." : "후기를 숨겼습니다.");
+  }, "바꾸지 못했습니다.");
+
+  const purgeReview = (review: ModeratedStoreReview) => {
+    if (!window.confirm(`${review.displayName} 님의 후기를 완전히 지웁니다. 되돌릴 수 없습니다.`)) return;
+    void run(async () => {
+      const response = await fetch(`/api/control/store/reviews/${encodeURIComponent(review.orderNo)}`, { method: "DELETE" });
+      const result = await readResult<{ reviews: ModeratedStoreReview[] }>(response, "지우지 못했습니다.");
+      setReviews(result.reviews);
+      say("후기를 지웠습니다.");
     }, "지우지 못했습니다.");
   };
 
@@ -105,7 +161,7 @@ export default function StorePanel({
   return (
     <>
       <div className="control-list-head">
-        <h2>구매 요청</h2>
+        <h2>상점 구매 요청</h2>
         <span>대기 {waiting}건 · 전체 {purchases.length}건</span>
       </div>
       <div className="application-list">
@@ -117,17 +173,18 @@ export default function StorePanel({
               <b>{purchase.itemName}</b>
               <code>{purchase.planLabel}</code>
               <b className="store-price-tag">{won(purchase.price)}</b>
-              {purchase.handled ? <em>처리함</em> : <i>대기 중</i>}
+              {purchase.handled ? <em>전달 완료</em> : <i>대기 중</i>}
             </div>
             <div className="application-who">
               <span>{purchase.mcNick}</span>
               <code>{purchase.buyerName} · {purchase.buyerId}</code>
+              <code>주문 {purchase.orderNo}</code>
               <time dateTime={purchase.createdAt}>{purchase.createdAt.slice(0, 10)}</time>
             </div>
             {purchase.note && <p className="application-note">{purchase.note}</p>}
             <div className="application-actions">
               <button type="button" onClick={() => markPurchase(purchase, !purchase.handled)} disabled={busy}>
-                {purchase.handled ? "대기로 되돌리기" : "처리함으로"}
+                {purchase.handled ? "대기로 되돌리기" : "전달 완료로"}
               </button>
               <button type="button" className="danger" onClick={() => removePurchase(purchase)} disabled={busy}>
                 삭제
@@ -182,9 +239,32 @@ export default function StorePanel({
               <label>작은 머리말
                 <input value={item.tagline} maxLength={30} placeholder="예: 기간제" onChange={(event) => patch(item.id, { tagline: event.target.value })}/>
               </label>
-              <label className="wide">설명
+              <label className="wide">한 줄 소개
                 <textarea value={item.description} maxLength={600} rows={2} onChange={(event) => patch(item.id, { description: event.target.value })}/>
+                <small>목록 카드에 나옵니다.</small>
               </label>
+              <label className="wide">자세한 설명
+                <textarea value={item.detail} maxLength={4000} rows={6} onChange={(event) => patch(item.id, { detail: event.target.value })}/>
+                <small>상품을 눌러 들어갔을 때 나옵니다. 줄바꿈은 그대로 살아납니다.</small>
+              </label>
+            </div>
+
+            <div className="store-shot-admin">
+              <div className="store-shot-list">
+                {item.images.map((image) => (
+                  <figure key={image.id}>
+                    <img src={`/api/store-images/${image.id}`} alt={image.filename}/>
+                    <button type="button" onClick={() => removeShot(item, image.id)} disabled={busy} aria-label="사진 지우기">×</button>
+                  </figure>
+                ))}
+                {item.images.length < MAX_ITEM_IMAGES && (
+                  <label className="store-shot-add">
+                    <input type="file" accept="image/*" multiple onChange={(event) => uploadShots(item, event)} disabled={busy}/>
+                    <span>사진 추가</span>
+                  </label>
+                )}
+              </div>
+              <small className="field-help">첫 번째 사진이 목록 카드에 나옵니다. 최대 {MAX_ITEM_IMAGES}장.</small>
             </div>
 
             <div className="tier-list">
@@ -207,6 +287,36 @@ export default function StorePanel({
               {item.plans.length === 0 && <p className="field-help">기간이 없으면 상점에 나오지 않습니다.</p>}
             </div>
 
+            <div className="sale-colour">
+              <span className="sale-colour-title">할인 색깔</span>
+              <div className="sale-colour-picks">
+                {SALE_COLOURS.map((colour) => (
+                  <button
+                    type="button"
+                    key={colour.hex}
+                    className={item.saleColour === colour.hex ? "on" : ""}
+                    style={{ background: colour.hex }}
+                    title={colour.name}
+                    aria-label={colour.name}
+                    aria-pressed={item.saleColour === colour.hex}
+                    onClick={() => patch(item.id, { saleColour: colour.hex })}
+                  />
+                ))}
+                <input
+                  type="color"
+                  value={item.saleColour}
+                  onChange={(event) => patch(item.id, { saleColour: event.target.value.toUpperCase() })}
+                  aria-label="직접 고르기"
+                />
+              </div>
+              <b
+                className="store-sale-badge"
+                style={{ "--sale": item.saleColour, "--on-sale": readableOn(item.saleColour) } as React.CSSProperties}
+              >
+                30% 할인
+              </b>
+            </div>
+
             <div className="store-admin-foot">
               <label className="switch-row">
                 <input type="checkbox" checked={item.active} onChange={(event) => patch(item.id, { active: event.target.checked })}/>
@@ -219,6 +329,38 @@ export default function StorePanel({
                 <button type="button" className="danger" onClick={() => removeItem(item)} disabled={busy}>상품 삭제</button>
                 <button type="button" onClick={() => saveItem(item)} disabled={busy}>저장</button>
               </div>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="control-list-head">
+        <h2>상점 후기</h2>
+        <span>{reviews.length}개 · 숨김 {reviews.filter((review) => review.hidden).length}개</span>
+      </div>
+      <div className="application-list">
+        {reviews.length === 0 ? (
+          <p className="field-help">아직 상점 후기가 없습니다.</p>
+        ) : reviews.map((review) => (
+          <article key={review.id} className={review.hidden ? "handled" : ""}>
+            <div className="application-head">
+              <b>{review.itemName}</b>
+              <code>★ {review.rating}</code>
+              {review.hidden && <em>숨김</em>}
+            </div>
+            <div className="application-who">
+              <span>{review.displayName}</span>
+              <code>주문 {review.orderNo}</code>
+              <time dateTime={review.updatedAt}>{review.updatedAt.slice(0, 10)}</time>
+            </div>
+            {review.body && <p className="application-note">{review.body}</p>}
+            <div className="application-actions">
+              <button type="button" onClick={() => toggleReview(review)} disabled={busy}>
+                {review.hidden ? "다시 보이기" : "숨기기"}
+              </button>
+              <button type="button" className="danger" onClick={() => purgeReview(review)} disabled={busy}>
+                완전 삭제
+              </button>
             </div>
           </article>
         ))}
