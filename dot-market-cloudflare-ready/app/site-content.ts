@@ -22,6 +22,7 @@ export const SITE = {
 export const NAV = [
   { href: "/#how", label: "주문 방법" },
   { href: "/#shops", label: "샵" },
+  { href: "/store", label: "상점" },
   { href: "/#palette", label: "팔레트" },
   { href: "/#faq", label: "자주 묻는 질문" },
 ];

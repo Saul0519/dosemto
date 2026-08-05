@@ -4,6 +4,7 @@ import { isSuperAdmin, listAllShops, listFeatureRanks } from "../../db/shops";
 import { listAllReviews } from "../../db/reviews";
 import { listApplications } from "../../db/applications";
 import { discordConfig } from "../../db/discord-session";
+import { getStoreChannelId, listAllItems, listPurchases } from "../../db/store";
 import ControlPanel from "./panel";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,12 @@ export default async function ControlPage() {
     discordConfig().catch(() => ({ clientId: "" })),
   ]);
 
+  const [storeItems, storePurchases, storeChannelId] = await Promise.all([
+    listAllItems().catch(() => []),
+    listPurchases().catch(() => []),
+    getStoreChannelId().catch(() => ""),
+  ]);
+
   /**
    * The bot only needs to be *present* in a server to DM its members — it needs
    * no permission to read or post. permissions=0 is the whole point: it makes
@@ -36,6 +43,9 @@ export default async function ControlPage() {
       initialApplications={applications}
       initialFeatureRanks={Object.fromEntries(featureRanks)}
       dmInviteUrl={dmInviteUrl}
+      storeItems={storeItems}
+      storePurchases={storePurchases}
+      storeChannelId={storeChannelId}
     />
   );
 }

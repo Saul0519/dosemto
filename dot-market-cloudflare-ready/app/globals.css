@@ -1749,3 +1749,143 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 .apply-form label.has-problem input,
 .apply-form label.has-problem textarea { border-color: var(--danger-ink); }
 .apply-form .field-problem { color: var(--danger-ink); font-weight: 600; line-height: 1.5; }
+
+/* ── 상점 ────────────────────────────────────────────────────────────────
+   Prices are in-game currency and nothing is charged here; a purchase is a
+   request. The discount styling is loud on purpose — that is the point of
+   running one. */
+
+.store-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+.store-card {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  padding: 22px;
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  background: var(--card);
+}
+.store-tagline {
+  margin: 0;
+  color: var(--coral-ink);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+.store-card h3 { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: -.03em; }
+.store-desc { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.75; white-space: pre-line; }
+
+.store-plans { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 8px; }
+.store-plans li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--paper);
+}
+.store-plans li.on-sale { border-color: var(--coral); background: #fff7f5; }
+.store-plan-label { font-size: 13px; font-weight: 700; white-space: nowrap; }
+.store-plan-price { margin-left: auto; display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
+.store-plan-price s { color: var(--ink-3); font-size: 12px; }
+.store-plan-price strong { font-family: var(--font-mono); font-size: 15px; }
+.store-plans li.on-sale .store-plan-price strong { color: var(--coral-ink); }
+.store-sale-badge {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--coral);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+.store-plans li button {
+  padding: 7px 14px;
+  border: 1px solid var(--ink);
+  border-radius: 9px;
+  background: var(--ink);
+  color: var(--ink-invert);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.store-plans li button:hover { background: var(--coral-ink); border-color: var(--coral-ink); }
+
+.store-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(22, 21, 26, .55);
+}
+.store-modal-box {
+  width: min(100%, 440px);
+  max-height: 90vh;
+  overflow-y: auto;
+  display: grid;
+  gap: 14px;
+  padding: 26px;
+  border-radius: 16px;
+  background: var(--paper);
+}
+.store-modal-box h3 { margin: 0; font-family: var(--font-display); font-size: 24px; font-weight: 700; }
+.store-modal-price { margin: 0; display: flex; align-items: baseline; gap: 8px; font-size: 14px; }
+.store-modal-price strong { font-family: var(--font-mono); font-size: 19px; color: var(--coral-ink); }
+.store-modal-price s { color: var(--ink-3); font-size: 13px; }
+.store-modal-note { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.7; }
+.store-modal-box label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
+.store-modal-box label small { color: var(--ink-3); font-weight: 400; font-size: 11px; line-height: 1.5; }
+.store-modal-box input, .store-modal-box textarea {
+  padding: 11px 13px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--paper);
+  font: inherit;
+  font-weight: 400;
+}
+.store-modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+
+.store-done {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding: 26px;
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  background: var(--paper-sunk);
+}
+.store-done b { font-size: 17px; }
+.store-done p { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.7; }
+
+/* Owner side */
+.store-admin { display: grid; gap: 14px; margin-bottom: 30px; }
+.store-admin > label { display: grid; gap: 6px; font-size: 12px; font-weight: 700; }
+.store-admin > label > span { display: flex; gap: 8px; }
+.store-admin > label input { flex: 1; padding: 9px 12px; border: 1px solid var(--line-2); border-radius: 9px; font: inherit; font-weight: 400; }
+.store-admin > label button {
+  padding: 9px 16px; border: 1px solid var(--line-2); border-radius: 9px;
+  background: var(--paper); font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.store-admin > label button:hover:not(:disabled) { border-color: var(--ink); }
+.store-admin > label button:disabled { opacity: .5; cursor: default; }
+.store-admin > label small { color: var(--ink-3); font-size: 11px; font-weight: 400; line-height: 1.5; }
+
+.store-admin-item {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+.store-admin-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
+.store-admin-foot .application-actions { margin-left: auto; }
+.store-price-tag { font-family: var(--font-mono); color: var(--coral-ink); }
