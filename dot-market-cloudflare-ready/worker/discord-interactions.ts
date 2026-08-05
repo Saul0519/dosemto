@@ -174,6 +174,8 @@ async function applyAction(input: {
 
   const won = `${order.total_price.toLocaleString("ko-KR")}원`;
   let dm: Record<string, unknown> | null = null;
+  // Set when a branch already posted its own message to the outcome channel.
+  let postedRecord = false;
 
   if (action === "accept") {
     dm = {
@@ -185,6 +187,8 @@ async function applyAction(input: {
       }],
     };
     // A fresh message so the finish button is separate from the handled one.
+    // This doubles as the accepted-orders record, so nothing else is posted.
+    postedRecord = true;
     if (outcomeChannel) {
       await fetch(`${api}/channels/${outcomeChannel}/messages`, {
         method: "POST",
@@ -234,19 +238,31 @@ async function applyAction(input: {
     };
   }
 
-  if (!dm || !order.player_uuid) return;
+  if (!dm) return;
 
-  const sent = await sendDm(api, headers, order.player_uuid, dm);
-  if (!sent && outcomeChannel) {
-    // A bot can only DM someone it shares a server with, and only if they allow
-    // it — most customers are neither. The mention is a best effort; the order
-    // screen at /me is what everyone can actually rely on.
+  // A bot can only DM someone it shares a server with, and only if they allow
+  // it — most customers are neither. /me is what everyone can rely on.
+  const sent = order.player_uuid
+    ? await sendDm(api, headers, order.player_uuid, dm)
+    : false;
+
+  // Keep the outcome channel a record of what happened rather than a place
+  // failed DMs land in. Skipped when the accepted-order message already says
+  // it, or when this is the very channel whose message was just edited to.
+  const needsRecord = Boolean(outcomeChannel) && !postedRecord
+    && (outcomeChannel !== channelId || !sent);
+
+  if (needsRecord) {
+    const reachedCustomer = sent || !order.player_uuid;
     await fetch(`${api}/channels/${outcomeChannel}/messages`, {
       method: "POST",
       headers,
       body: JSON.stringify({
-        content: `<@${order.player_uuid}> ${dm.content as string}\n(DM이 막혀 있어 여기로 보냅니다.)`,
-        allowed_mentions: { users: [order.player_uuid] },
+        content: reachedCustomer
+          ? `${MARK[action]} **${orderId}** · ${LABEL[action]} 처리됨`
+          : `<@${order.player_uuid}> ${dm.content as string}\n`
+            + "(DM이 닿지 않아 여기로 보냅니다. 주문자는 사이트 \"내 주문\"에서도 확인할 수 있습니다.)",
+        allowed_mentions: reachedCustomer ? { parse: [] } : { users: [order.player_uuid] },
         embeds: dm.embeds,
       }),
     }).catch(() => undefined);
