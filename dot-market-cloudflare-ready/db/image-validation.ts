@@ -63,7 +63,7 @@ export async function validateImageFile(
     throw new Error("파일의 실제 형식을 확인할 수 없습니다. PNG, JPG, WEBP, GIF만 사용할 수 있습니다.");
   }
   if (options.requiredMime && detectedMime !== options.requiredMime) {
-    throw new Error(`변환 도안은 실제 ${extensionForMime(options.requiredMime).toUpperCase()} 파일이어야 합니다.`);
+    throw new Error(`미리보기는 실제 ${extensionForMime(options.requiredMime).toUpperCase()} 파일이어야 합니다.`);
   }
 
   const extension = filenameExtension(file.name);

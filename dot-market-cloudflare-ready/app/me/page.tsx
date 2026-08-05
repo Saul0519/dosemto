@@ -82,7 +82,7 @@ export default async function MyOrdersPage() {
           {orders.length === 0 ? (
             <div className="empty-shops">
               <b>아직 주문이 없습니다.</b>
-              <span>샵에서 도안을 만들고 주문하시면 여기에 기록이 남습니다.</span>
+              <span>샵에 그림을 맡기시면 여기에 기록이 남습니다.</span>
               <Link className="btn btn-line" href="/#shops">샵 둘러보기</Link>
             </div>
           ) : (
@@ -95,7 +95,7 @@ export default async function MyOrdersPage() {
                     <div className="my-order-art lattice">
                       {/* Only this customer can fetch it; the route checks the session. */}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={`/api/my/orders/${order.id}/preview`} alt={`${order.id} 변환 도안`} loading="lazy"/>
+                      <img src={`/api/my/orders/${order.id}/preview`} alt={`${order.id} 미리보기`} loading="lazy"/>
                     </div>
                     <div className="my-order-body">
                       <div className="my-order-head">
@@ -111,8 +111,7 @@ export default async function MyOrdersPage() {
                         <div><dt>원본</dt><dd>{order.originalFilename}</dd></div>
                       </dl>
                       <div className="my-order-actions">
-                        <a href={`/api/my/orders/${order.id}/preview`} download>도안 내려받기</a>
-                        {order.status === "completed" && (
+                                                {order.status === "completed" && (
                           <Link href={`/review/${order.id}`}>
                             {review ? `후기 수정 (★ ${review.rating})` : "후기 남기기"}
                           </Link>

@@ -12,8 +12,17 @@ import { verifyTurnstile } from "../../../db/turnstile";
 export const dynamic = "force-dynamic";
 
 const MAX_PREVIEW_BYTES = 10 * 1024 * 1024;
-const MAX_ORIGINAL_BYTES = 8 * 1024 * 1024;
+/** Matches the order screen. The painter works from this file. */
+const MAX_ORIGINAL_BYTES = 15 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 20 * 1024 * 1024;
+
+/**
+ * What Discord accepts as an attachment on a server with no boosts. A file over
+ * this is still kept at full quality and still downloadable from the shop
+ * screen — it just cannot ride along on the notification, and trying would fail
+ * the whole message rather than one attachment.
+ */
+const DISCORD_ATTACHMENT_LIMIT = 9.5 * 1024 * 1024;
 
 function numberField(form: FormData, name: string) {
   return Number(form.get(name));
@@ -99,7 +108,7 @@ export async function POST(request: Request) {
   const gridY = numberField(form, "gridY");
   const deadline = numberField(form, "deadline");
   if (!(preview instanceof File)) {
-    return Response.json({ error: "변환한 도안 이미지를 찾지 못했습니다." }, { status: 400 });
+    return Response.json({ error: "미리보기 이미지를 만들지 못했습니다. 새로고침 후 다시 시도해 주세요." }, { status: 400 });
   }
   if (![gridX, gridY, deadline].every(Number.isInteger) || gridX < 1 || gridX > 30 || gridY < 1 || gridY > 100 || !isOfferedDeadline(deadline)) {
     return Response.json({ error: "격자 크기 또는 마감일이 올바르지 않습니다." }, { status: 400 });
@@ -131,6 +140,10 @@ export async function POST(request: Request) {
     surcharge,
   });
   const id = orderId();
+  // Attaching a file Discord will not take fails the entire message, so an
+  // oversized original is left off and pointed at instead.
+  const originalTooBigForDiscord = original instanceof File && original.size > DISCORD_ATTACHMENT_LIMIT;
+
   const previewObjectKey = `orders/${shop.id}/${id}/preview.png`;
   const originalObjectKey = originalFile ? `orders/${shop.id}/${id}/original.${originalFile.extension}` : null;
 
@@ -172,7 +185,7 @@ export async function POST(request: Request) {
     channelId: shop.channelId,
     content: `📦 **${shop.name}**에 새 주문이 도착했습니다 · **${id}**`,
     embed: {
-      title: `${gridX}×${gridY} 도안 주문`,
+      title: `${gridX}×${gridY} 캔버스 주문`,
       color: 0xff6157,
       fields: [
         { name: "주문자", value: `${orderer.name} (<@${orderer.id}>)`, inline: true },
@@ -186,6 +199,11 @@ export async function POST(request: Request) {
         { name: "규격", value: `${gridX}×${gridY} · ${tiles}장 · 장당 32×32`, inline: false },
         { name: "가장자리 처리", value: cropLabel, inline: false },
         { name: "원본 파일", value: originalFilename, inline: false },
+        ...(originalTooBigForDiscord ? [{
+          name: "그림 파일",
+          value: "용량이 커서 여기에는 못 올렸습니다. 샵 관리자 화면에서 원본 그대로 받으실 수 있습니다.",
+          inline: false,
+        }] : []),
         { name: "요청사항", value: note || "없음", inline: false },
       ],
       footer: { text: "버튼을 누르면 주문자에게 자동으로 안내가 갑니다." },
@@ -197,7 +215,7 @@ export async function POST(request: Request) {
     ],
     files: [
       { name: `DOT_ORDER_${id}_${gridX}x${gridY}.png`, blob: preview },
-      ...(originalFile && original instanceof File
+      ...(originalFile && original instanceof File && !originalTooBigForDiscord
         ? [{ name: `ORIGINAL_${id}.${originalFile.extension}`, blob: original }]
         : []),
     ],

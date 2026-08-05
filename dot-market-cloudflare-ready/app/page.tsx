@@ -233,7 +233,7 @@ export default async function Home({ searchParams }: {
                     )}
                     {/* One element, not a paragraph per line: each would become
                         its own grid item and space itself out by the grid gap. */}
-                    <p className="shop-card-desc">{shop.description || "32×32 캔버스 도안을 만드는 샵입니다."}</p>
+                    <p className="shop-card-desc">{shop.description || "32×32 캔버스에 그림을 그려주는 샵입니다."}</p>
                     <b>
                       장당 {won(shop.pricing.tilePrice)}부터
                       <span>자세히 보기 →</span>

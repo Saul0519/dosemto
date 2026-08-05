@@ -286,7 +286,7 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
     const typed = window.prompt(
       `주문 ${id}을(를) 완전히 삭제합니다.
 `
-      + `후기와 저장된 도안·원본 파일까지 함께 지워지고 되돌릴 수 없습니다.
+      + `후기와 저장된 그림 파일까지 함께 지워지고 되돌릴 수 없습니다.
 
 `
       + `그래도 지우려면 주문번호를 입력하세요: ${id}`,
@@ -395,7 +395,7 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
               })()}
 
               {visibleOrders.length === 0 ? (
-                <div className="order-empty"><b>아직 접수된 주문이 없습니다.</b><span>고객이 주문을 완료하면 도안, 연락처, 금액과 마감 정보가 여기에 표시됩니다.</span></div>
+                <div className="order-empty"><b>아직 접수된 주문이 없습니다.</b><span>고객이 주문을 완료하면 그림 파일, 연락처, 금액과 마감 정보가 여기에 표시됩니다.</span></div>
               ) : <div className="order-history-list">{visibleOrders.map((order) => (
                 <article className={`order-history-card status-${order.status}`} key={order.id}>
                   <header>
@@ -420,7 +420,7 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
                   </dl>
                   <footer>
                     <span className={order.webhookSent ? "sent" : "failed"}>{order.webhookSent ? "Discord 알림 전송됨" : "Discord 알림 실패"}</span>
-                    <div><a href={`/api/admin/orders/${encodeURIComponent(order.id)}/files/preview`}>변환 도안 받기</a>{order.hasOriginal && <a href={`/api/admin/orders/${encodeURIComponent(order.id)}/files/original`}>원본 받기</a>}{isSuperAdmin && <button type="button" className="purge-order" onClick={() => purgeOrder(order.id)} disabled={orderBusy === order.id}>주문 삭제</button>}</div>
+                    <div>{order.hasOriginal ? <a href={`/api/admin/orders/${encodeURIComponent(order.id)}/files/original`}>그림 파일 받기</a> : <a href={`/api/admin/orders/${encodeURIComponent(order.id)}/files/preview`}>미리보기만 있음 (예전 주문)</a>}{isSuperAdmin && <button type="button" className="purge-order" onClick={() => purgeOrder(order.id)} disabled={orderBusy === order.id}>주문 삭제</button>}</div>
                   </footer>
                 </article>
               ))}</div>}

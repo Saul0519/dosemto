@@ -89,7 +89,7 @@ export default function ControlPanel({
   const remove = async (shop: Shop) => {
     const typed = window.prompt(
       `"${shop.name}"을(를) 삭제합니다.\n\n`
-      + `이 샵의 주문 기록과 손님들이 남긴 후기, 저장된 도안·원본 파일까지 함께 지워지고, 되돌릴 수 없습니다.\n`
+      + `이 샵의 주문 기록과 손님들이 남긴 후기, 저장된 그림 파일까지 함께 지워지고, 되돌릴 수 없습니다.\n`
       + `잠시 내리는 것이라면 아래 "마켓과 주문 화면에 공개"를 끄는 쪽을 쓰세요.\n\n`
       + `그래도 삭제하려면 샵 주소를 그대로 입력하세요: ${shop.slug}`,
     );

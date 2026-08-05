@@ -50,7 +50,7 @@ export default async function LoginPage({ searchParams }: {
               <p>
                 주문 접수와 후기 작성에 필요합니다. 로그인하면 연락처를 따로 적지 않아도 되고,
                 작업이 진행될 때마다 디스코드로 알림이 갑니다.
-                도안 변환과 PNG 다운로드는 로그인 없이 그대로 쓰실 수 있습니다.
+                미리보기는 로그인 없이 그대로 보실 수 있습니다.
               </p>
               {login && REASONS[login] && <p className="action-error">{REASONS[login]}</p>}
               {configured

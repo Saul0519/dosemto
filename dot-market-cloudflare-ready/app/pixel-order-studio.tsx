@@ -119,8 +119,12 @@ function formatWon(value: number) {
 
 /** Kept just under the route's own 20MB ceiling, which also counts form fields. */
 const MAX_ORDER_BYTES = 19 * 1024 * 1024;
-/** Above this the original is not worth storing alongside the pattern. */
-const MAX_ORIGINAL_BYTES = 8 * 1024 * 1024;
+/**
+ * The painter works from this file, so it is the one thing an order must
+ * carry. Comfortably inside the 20MB the route accepts, leaving room for the
+ * preview that goes with it.
+ */
+const MAX_ORIGINAL_BYTES = 15 * 1024 * 1024;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -316,15 +320,6 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, userName, login
         ? `아래쪽 ${trimPixels}px 자름`
         : `위·아래 합계 ${trimPixels}px 나눠 자름`;
 
-  const downloadPreview = () => {
-    const canvas = previewCanvasRef.current;
-    if (!canvas || !file) return;
-    const link = document.createElement("a");
-    link.download = `dot-order_${gridX}x${gridY}_${file.name.replace(/\.[^.]+$/, "")}.png`;
-    link.href = canvas.toDataURL("image/png");
-    link.click();
-  };
-
   const openLargePreview = () => {
     const canvas = previewCanvasRef.current;
     if (!canvas || !sourceImage) return;
@@ -345,21 +340,20 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, userName, login
       setOrderMessage("주문 이미지를 만드는 중 문제가 생겼습니다.");
       return;
     }
-    // The original is a courtesy copy for the painter; the converted pattern is
-    // the order. When the two together will not fit, send the pattern alone
-    // rather than failing the whole order — and say so, because the shop is
-    // getting less than the customer chose to give it.
-    const keepsOriginal = file.size <= MAX_ORIGINAL_BYTES;
-    const withOriginal = keepsOriginal && previewBlob.size + file.size <= MAX_ORDER_BYTES;
-    if (previewBlob.size > MAX_ORDER_BYTES) {
+    // The painter paints from the uploaded file, so an order without it is not
+    // an order. Too big is refused with a number rather than quietly dropped.
+    if (file.size > MAX_ORIGINAL_BYTES || previewBlob.size + file.size > MAX_ORDER_BYTES) {
       setOrderState("error");
-      setOrderMessage("변환한 도안이 너무 큽니다. 가로 칸 수를 줄이고 다시 시도해 주세요.");
+      setOrderMessage(
+        `사진이 너무 큽니다 (${(file.size / 1048576).toFixed(1)}MB). `
+        + `화가에게 이 파일이 그대로 전달되니, ${MAX_ORIGINAL_BYTES / 1048576}MB 이하로 줄여서 올려주세요.`,
+      );
       return;
     }
 
     const form = new FormData();
     form.append("preview", previewBlob, `converted_${gridX}x${gridY}.png`);
-    if (withOriginal) form.append("original", file, file.name);
+    form.append("original", file, file.name);
     form.append("note", note.trim());
     form.append("gridX", String(gridX));
     form.append("gridY", String(gridY));
@@ -388,10 +382,7 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, userName, login
       }
       if (!response.ok) throw new Error(result.error || "주문 전송에 실패했습니다.");
       setOrderState("sent");
-      setOrderMessage(
-        `주문이 전송되었습니다. 주문번호 ${result.orderId}`
-        + (keepsOriginal && !withOriginal ? " · 원본 사진은 용량이 커서 도안만 전달했습니다." : ""),
-      );
+      setOrderMessage(`주문이 전송되었습니다. 주문번호 ${result.orderId}`);
     } catch (error) {
       setOrderState("error");
       setOrderMessage(error instanceof Error ? error.message : "주문 전송에 실패했습니다.");
@@ -419,7 +410,7 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, userName, login
       <section className="hero" id="studio">
         <p className="eyebrow">{shop.name.toUpperCase()} · PAINTER&apos;S EASEL</p>
         <h1>이미지를 올리고 가로 칸 수만 정하세요.</h1>
-        <p>세로 칸 수와 총 장수는 원본 비율대로 붙습니다. 도안 PNG는 주문하지 않아도 받아 갈 수 있습니다.</p>
+        <p>세로 칸 수와 총 장수는 원본 비율대로 붙습니다. 아래 미리보기는 게임에서 어떻게 보일지 확인하는 용도입니다.</p>
       </section>
 
       <div className="workspace">
@@ -507,7 +498,6 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, userName, login
             </div>
           )}
 
-          <button className="download-button" type="button" onClick={downloadPreview} disabled={!sourceImage}><Icon name="download" size={18}/> 변환 도안 PNG 다운로드</button>
         </section>
 
         <aside className="summary-card" id="price">
@@ -553,7 +543,7 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, userName, login
               <b>접수 슬롯</b>
               <strong>{slots.used}<i>/{slots.max}</i></strong>
               <span>{slots.full
-                ? "진행 중인 작업이 끝나면 다시 열립니다. 도안 변환과 다운로드는 그대로 쓰실 수 있습니다."
+                ? "진행 중인 작업이 끝나면 다시 열립니다. 미리보기는 그대로 보실 수 있습니다."
                 : `${slots.max - slots.used}칸 남았습니다.`}</span>
             </div>
           )}
@@ -585,10 +575,10 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, userName, login
             <button className="order-button" type="button" onClick={submitOrder} disabled={Boolean(openOrderId) || slots.full || orderState === "sending" || !captchaToken}>
               {openOrderId ? "진행 중인 주문이 끝나야 합니다" : slots.full ? "지금은 접수 슬롯이 가득 찼습니다" : orderState === "sending" ? "보내는 중…" : !captchaSiteKey ? "봇 방지 설정이 필요합니다" : !captchaToken ? "봇 방지 확인을 먼저 해주세요" : orderState === "sent" ? "주문 전송 완료" : <><Icon name="discord" size={21}/> 주문 넣기 <span>→</span></>}
             </button>
-            <p className={`order-status ${orderState}`}>{orderMessage || <><Icon name="lock" size={14}/> 변환 도안과 주문 내용이 샵 디스코드로 함께 전송됩니다.</>}</p>
+            <p className={`order-status ${orderState}`}>{orderMessage || <><Icon name="lock" size={14}/> 올리신 파일이 화질 그대로 샵 디스코드로 전송됩니다.</>}</p>
           </> : <div className="order-login">
             <b>주문하려면 디스코드 로그인이 필요합니다</b>
-            <span>연락처를 따로 적지 않아도 되고, 수락·거절·완성 알림이 디스코드로 갑니다. 도안 변환과 PNG 다운로드는 로그인 없이 그대로 쓰실 수 있습니다.</span>
+            <span>연락처를 따로 적지 않아도 되고, 수락·거절·완성 알림이 디스코드로 갑니다. 미리보기는 로그인 없이 그대로 보실 수 있습니다.</span>
             {loginConfigured
               ? <a className="order-button" href={`/login?next=${encodeURIComponent(`/shop/${shop.slug}`)}`}>디스코드로 로그인 <span>→</span></a>
               : <p className="order-status error">마인크래프트 로그인이 아직 설정되지 않았습니다. 샵 관리자에게 알려주세요.</p>}

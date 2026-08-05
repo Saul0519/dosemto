@@ -73,7 +73,7 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
 
           <aside className="service-summary">
             <span className="service-category">{SHOP_PAGE.specTitle}</span>
-            <h1>{shop.aboutTitle || `${shop.name} 도안 주문`}</h1>
+            <h1>{shop.aboutTitle || `${shop.name}에 그림 맡기기`}</h1>
             <p className="service-by">by {shop.name}</p>
             {rating.count > 0 && (
               <a className="service-rating" href="#reviews">
@@ -104,7 +104,7 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
                   </dd>
                 </div>
               )}
-              <div><dt>받는 것</dt><dd>32px 격자선이 들어간 도안 PNG</dd></div>
+              <div><dt>받는 것</dt><dd>게임 안 이젤에 그려진 그림</dd></div>
               <div><dt>연락</dt><dd>주문 시 남긴 디스코드 ID</dd></div>
               {slots.enabled && (
                 <div><dt>접수 슬롯</dt><dd>{slots.full ? `가득 참 (${slots.used}/${slots.max})` : `${slots.used}/${slots.max} · ${slots.free}칸 남음`}</dd></div>
@@ -115,12 +115,12 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
             </Link>
             {shop.webhookConfigured && slots.full && (
               <small className="service-preparing-note">
-                지금은 접수 슬롯이 모두 찼습니다. 진행 중인 작업이 끝나면 다시 열립니다. 도안 변환과 다운로드는 그대로 쓰실 수 있습니다.
+                지금은 접수 슬롯이 모두 찼습니다. 진행 중인 작업이 끝나면 다시 열립니다. 미리보기는 그대로 보실 수 있습니다.
               </small>
             )}
             {!shop.webhookConfigured && (
               <small className="service-preparing-note">
-                이 샵은 아직 주문 알림 채널을 연결하지 않아 지금은 주문을 받을 수 없습니다. 도안 변환과 다운로드는 됩니다.
+                이 샵은 아직 주문 알림 채널을 연결하지 않아 지금은 주문을 받을 수 없습니다. 미리보기는 보실 수 있습니다.
               </small>
             )}
           </aside>
