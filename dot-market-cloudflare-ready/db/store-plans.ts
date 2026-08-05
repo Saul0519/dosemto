@@ -6,6 +6,45 @@
  * on screen is the number the buyer hands over in game.
  */
 
+/** The colour a discount is drawn in when the owner has not picked one. */
+export const DEFAULT_SALE_COLOUR = "#FF5A4E";
+
+/** A few colours that read as "look here", so picking one is a click. */
+export const SALE_COLOURS = [
+  { hex: "#FF5A4E", name: "빨강" },
+  { hex: "#F2721B", name: "주황" },
+  { hex: "#E4B300", name: "노랑" },
+  { hex: "#2FA84F", name: "초록" },
+  { hex: "#1E88E5", name: "파랑" },
+  { hex: "#7A4DD8", name: "보라" },
+  { hex: "#D6336C", name: "분홍" },
+  { hex: "#16151A", name: "검정" },
+];
+
+/**
+ * Anything that is not a plain #rrggbb falls back to the default. The value
+ * reaches the page as inline style, so it has to be exactly a colour.
+ */
+export function normaliseColour(value: unknown) {
+  const text = String(value ?? "").trim();
+  if (!/^#[0-9a-fA-F]{6}$/.test(text)) return DEFAULT_SALE_COLOUR;
+  return text.toUpperCase();
+}
+
+/**
+ * Black or white, whichever stays legible on the given background. Without it a
+ * yellow badge would be white text on yellow.
+ */
+export function readableOn(hex: string) {
+  const colour = normaliseColour(hex);
+  const channel = (at: number) => {
+    const part = parseInt(colour.slice(at, at + 2), 16) / 255;
+    return part <= 0.03928 ? part / 12.92 : ((part + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+  return luminance > 0.42 ? "#16151A" : "#FFFFFF";
+}
+
 export type StorePlan = {
   /** "1일", "1주일", "1달" — the shop owner's words, not a fixed set. */
   label: string;
@@ -16,6 +55,11 @@ export type StorePlan = {
    * price so the page can show what it was crossed out.
    */
   salePrice: number;
+  /**
+   * What this plan's discount is drawn in. Per plan rather than per product so
+   * a small saving and a big one can look different on the same card.
+   */
+  colour: string;
 };
 
 export const MAX_PLANS = 8;
@@ -24,9 +68,9 @@ export const MAX_PLANS = 8;
 export const MAX_ITEM_IMAGES = 8;
 
 export const DEFAULT_PLANS: StorePlan[] = [
-  { label: "1일", price: 1_000_000, salePrice: 0 },
-  { label: "1주일", price: 5_000_000, salePrice: 0 },
-  { label: "1달", price: 18_000_000, salePrice: 0 },
+  { label: "1일", price: 1_000_000, salePrice: 0, colour: DEFAULT_SALE_COLOUR },
+  { label: "1주일", price: 5_000_000, salePrice: 0, colour: DEFAULT_SALE_COLOUR },
+  { label: "1달", price: 18_000_000, salePrice: 0, colour: DEFAULT_SALE_COLOUR },
 ];
 
 export function parsePlans(raw: string | null | undefined): StorePlan[] {
@@ -46,6 +90,7 @@ export function normalisePlans(plans: StorePlan[]): StorePlan[] {
       label: String(plan?.label ?? "").trim().slice(0, 20),
       price: Math.max(0, Math.trunc(Number(plan?.price) || 0)),
       salePrice: Math.max(0, Math.trunc(Number(plan?.salePrice) || 0)),
+      colour: normaliseColour(plan?.colour),
     }))
     .filter((plan) => plan.label.length > 0 && plan.price > 0)
     // A "discount" that costs more is a mistake, not an offer.
@@ -109,43 +154,4 @@ export function durationLabel(days: number) {
   if (years > 0) return months > 0 ? `${years}년 ${months}개월` : `${years}년`;
   const rest = days % 30;
   return rest > 0 ? `${months}개월 ${rest}일` : `${months}개월`;
-}
-
-/** The colour a discount is drawn in when the owner has not picked one. */
-export const DEFAULT_SALE_COLOUR = "#FF5A4E";
-
-/** A few colours that read as "look here", so picking one is a click. */
-export const SALE_COLOURS = [
-  { hex: "#FF5A4E", name: "빨강" },
-  { hex: "#F2721B", name: "주황" },
-  { hex: "#E4B300", name: "노랑" },
-  { hex: "#2FA84F", name: "초록" },
-  { hex: "#1E88E5", name: "파랑" },
-  { hex: "#7A4DD8", name: "보라" },
-  { hex: "#D6336C", name: "분홍" },
-  { hex: "#16151A", name: "검정" },
-];
-
-/**
- * Anything that is not a plain #rrggbb falls back to the default. The value
- * reaches the page as inline style, so it has to be exactly a colour.
- */
-export function normaliseColour(value: unknown) {
-  const text = String(value ?? "").trim();
-  if (!/^#[0-9a-fA-F]{6}$/.test(text)) return DEFAULT_SALE_COLOUR;
-  return text.toUpperCase();
-}
-
-/**
- * Black or white, whichever stays legible on the given background. Without it a
- * yellow badge would be white text on yellow.
- */
-export function readableOn(hex: string) {
-  const colour = normaliseColour(hex);
-  const channel = (at: number) => {
-    const part = parseInt(colour.slice(at, at + 2), 16) / 255;
-    return part <= 0.03928 ? part / 12.92 : ((part + 0.055) / 1.055) ** 2.4;
-  };
-  const luminance = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
-  return luminance > 0.42 ? "#16151A" : "#FFFFFF";
 }

@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { readResult } from "../../read-result";
 import type { StoreItem } from "../../../db/store";
-import { StorePlan, discountPercent, effectivePrice, isOnSale, won } from "../../../db/store-plans";
+import { StorePlan, discountPercent, effectivePrice, isOnSale, readableOn, won } from "../../../db/store-plans";
+import type { CSSProperties } from "react";
 
 export default function BuyPanel({ item, signedIn, buyerName }: {
   item: StoreItem;
@@ -61,7 +62,11 @@ export default function BuyPanel({ item, signedIn, buyerName }: {
         {item.plans.map((plan) => {
           const sale = isOnSale(plan);
           return (
-            <li key={plan.label} className={sale ? "on-sale" : ""}>
+            <li
+              key={plan.label}
+              className={sale ? "on-sale" : ""}
+              style={{ "--sale": plan.colour, "--on-sale": readableOn(plan.colour) } as CSSProperties}
+            >
               <span className="store-plan-label">{plan.label}</span>
               <span className="store-plan-price">
                 {sale && (
@@ -89,7 +94,10 @@ export default function BuyPanel({ item, signedIn, buyerName }: {
           <div className="store-modal-box">
             <p className="eyebrow">구매 요청</p>
             <h3>{item.name}</h3>
-            <p className="store-modal-price">
+            <p
+              className="store-modal-price"
+              style={{ "--sale": chosen.colour } as CSSProperties}
+            >
               {chosen.label} · <strong>{won(effectivePrice(chosen))}</strong>
               {isOnSale(chosen) && <s>{won(chosen.price)}</s>}
             </p>

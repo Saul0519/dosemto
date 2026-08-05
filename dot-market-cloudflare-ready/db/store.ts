@@ -6,7 +6,7 @@
  * "purchase" row is a record of who asked for what, not a receipt.
  */
 
-import { MAX_ITEM_IMAGES, StorePlan, normaliseColour, parsePlans, serialisePlans } from "./store-plans";
+import { MAX_ITEM_IMAGES, StorePlan, parsePlans, serialisePlans } from "./store-plans";
 import { randomToken } from "./random-token";
 
 export type StoreImage = { id: string; filename: string };
@@ -21,8 +21,6 @@ export type StoreItem = {
   /** Small line above the name — "기간제", "한정" and so on. */
   tagline: string;
   plans: StorePlan[];
-  /** What a discount is drawn in, so a sale can suit the product. */
-  saleColour: string;
   images: StoreImage[];
   active: boolean;
   position: number;
@@ -52,7 +50,7 @@ export type StorePurchase = {
 
 type ItemRow = {
   id: string; name: string; description: string; detail: string | null; tagline: string;
-  plans: string | null; sale_colour: string | null; active: number; position: number;
+  plans: string | null; active: number; position: number;
 };
 
 type ImageRow = { id: string; item_id: string; filename: string };
@@ -125,7 +123,6 @@ async function migrate() {
 
   // Added when products grew a page of their own.
   await db.prepare(`ALTER TABLE store_items ADD COLUMN detail TEXT NOT NULL DEFAULT ''`).run().catch(() => undefined);
-  await db.prepare("ALTER TABLE store_items ADD COLUMN sale_colour TEXT").run().catch(() => undefined);
 }
 
 function toItem(row: ItemRow, images: StoreImage[] = []): StoreItem {
@@ -136,7 +133,6 @@ function toItem(row: ItemRow, images: StoreImage[] = []): StoreItem {
     detail: row.detail ?? "",
     tagline: row.tagline,
     plans: parsePlans(row.plans),
-    saleColour: normaliseColour(row.sale_colour),
     images,
     active: Boolean(row.active),
     position: row.position,
@@ -149,7 +145,7 @@ const PURCHASE_COLUMNS = `p.id, p.order_no, p.item_id, p.item_name, p.plan_label
   i.active AS item_active, i.plans AS item_plans`;
 const PURCHASE_FROM = "store_purchases p LEFT JOIN store_items i ON i.id = p.item_id";
 
-const ITEM_COLUMNS = "id, name, description, detail, tagline, plans, sale_colour, active, position";
+const ITEM_COLUMNS = "id, name, description, detail, tagline, plans, active, position";
 
 /** One query for every item's pictures rather than one query each. */
 async function listImagesByItem(rows: ItemRow[]) {
@@ -220,20 +216,18 @@ export async function updateItem(id: string, input: {
   detail: string;
   tagline: string;
   plans: StorePlan[];
-  saleColour: string;
   active: boolean;
   position: number;
 }) {
   await ensureTables();
   const db = await getD1();
   await db.prepare(`UPDATE store_items SET name = ?, description = ?, detail = ?, tagline = ?,
-    plans = ?, sale_colour = ?, active = ?, position = ? WHERE id = ?`).bind(
+    plans = ?, active = ?, position = ? WHERE id = ?`).bind(
     input.name.trim().slice(0, 60) || "새 상품",
     input.description.trim().slice(0, 600),
     input.detail.trim().slice(0, 4000),
     input.tagline.trim().slice(0, 30),
     serialisePlans(input.plans),
-    normaliseColour(input.saleColour),
     input.active ? 1 : 0,
     Math.max(0, Math.min(999, Math.trunc(input.position) || 0)),
     id,

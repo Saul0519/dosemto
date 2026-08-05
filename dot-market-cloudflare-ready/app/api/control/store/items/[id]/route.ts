@@ -21,16 +21,15 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!body) return Response.json({ error: "요청을 읽지 못했습니다." }, { status: 400 });
 
-  // updateItem normalises the plans and the colour, so a blank label, a
-  // "discount" that costs more, or a colour that is not a colour never reaches
-  // the page.
+  // updateItem normalises the plans, so a blank label, a "discount" that costs
+  // more than the original, or a colour that is not a colour never reaches the
+  // page.
   await updateItem(id, {
     name: String(body.name ?? ""),
     description: String(body.description ?? ""),
     detail: String(body.detail ?? ""),
     tagline: String(body.tagline ?? ""),
     plans: Array.isArray(body.plans) ? body.plans as StorePlan[] : [],
-    saleColour: String(body.saleColour ?? ""),
     active: body.active === true,
     position: Number(body.position) || 0,
   });

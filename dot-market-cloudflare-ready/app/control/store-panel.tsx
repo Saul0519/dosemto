@@ -1,11 +1,12 @@
 "use client";
 
 import { ChangeEvent, useState } from "react";
+import type { CSSProperties } from "react";
 import { readResult } from "../read-result";
 import type { StoreItem, StorePurchase } from "../../db/store";
 import type { ModeratedStoreReview } from "../../db/store-reviews";
 import {
-  MAX_ITEM_IMAGES, MAX_PLANS, SALE_COLOURS, StorePlan,
+  DEFAULT_SALE_COLOUR, MAX_ITEM_IMAGES, MAX_PLANS, SALE_COLOURS, StorePlan,
   discountPercent, isOnSale, readableOn, won,
 } from "../../db/store-plans";
 
@@ -269,52 +270,56 @@ export default function StorePanel({
 
             <div className="tier-list">
               {item.plans.map((plan, index) => (
-                <div className="tier-row" key={index}>
+                <div className="tier-row plan-row" key={index}>
                   <label>기간<input value={plan.label} maxLength={20} placeholder="1일" onChange={(event) => setPlan(item, index, { label: event.target.value })}/></label>
                   <label>정가<input type="number" min={0} step={10000} value={plan.price} onChange={(event) => setPlan(item, index, { price: Math.max(0, Math.trunc(Number(event.target.value) || 0)) })}/>원</label>
                   <label>할인가<input type="number" min={0} step={10000} value={plan.salePrice} onChange={(event) => setPlan(item, index, { salePrice: Math.max(0, Math.trunc(Number(event.target.value) || 0)) })}/>원</label>
-                  <small>{isOnSale(plan) ? `${discountPercent(plan)}% 할인으로 표시` : "0이면 할인 없음"}</small>
                   <button type="button" onClick={() => patch(item.id, { plans: item.plans.filter((_, at) => at !== index) })}>빼기</button>
+
+                  {/* Each band gets its own colour, so a small saving and a big
+                      one do not have to shout in the same voice. */}
+                  <div className="sale-colour">
+                    {isOnSale(plan) ? (
+                      <b
+                        className="store-sale-badge"
+                        style={{ "--sale": plan.colour, "--on-sale": readableOn(plan.colour) } as CSSProperties}
+                      >
+                        {discountPercent(plan)}% 할인
+                      </b>
+                    ) : <small className="field-help">할인가를 넣으면 여기에 배지가 보입니다</small>}
+                    <div className="sale-colour-picks">
+                      {SALE_COLOURS.map((colour) => (
+                        <button
+                          type="button"
+                          key={colour.hex}
+                          className={plan.colour === colour.hex ? "on" : ""}
+                          style={{ background: colour.hex }}
+                          title={colour.name}
+                          aria-label={`${plan.label || `${index + 1}번째 기간`} 할인 색: ${colour.name}`}
+                          aria-pressed={plan.colour === colour.hex}
+                          onClick={() => setPlan(item, index, { colour: colour.hex })}
+                        />
+                      ))}
+                      <input
+                        type="color"
+                        value={plan.colour}
+                        onChange={(event) => setPlan(item, index, { colour: event.target.value.toUpperCase() })}
+                        aria-label="직접 고르기"
+                      />
+                    </div>
+                  </div>
                 </div>
               ))}
               {item.plans.length < MAX_PLANS && (
                 <button
                   type="button"
                   className="plain-upload-button"
-                  onClick={() => patch(item.id, { plans: [...item.plans, { label: "", price: 0, salePrice: 0 }] })}
+                  onClick={() => patch(item.id, {
+                    plans: [...item.plans, { label: "", price: 0, salePrice: 0, colour: DEFAULT_SALE_COLOUR }],
+                  })}
                 >기간 추가</button>
               )}
               {item.plans.length === 0 && <p className="field-help">기간이 없으면 상점에 나오지 않습니다.</p>}
-            </div>
-
-            <div className="sale-colour">
-              <span className="sale-colour-title">할인 색깔</span>
-              <div className="sale-colour-picks">
-                {SALE_COLOURS.map((colour) => (
-                  <button
-                    type="button"
-                    key={colour.hex}
-                    className={item.saleColour === colour.hex ? "on" : ""}
-                    style={{ background: colour.hex }}
-                    title={colour.name}
-                    aria-label={colour.name}
-                    aria-pressed={item.saleColour === colour.hex}
-                    onClick={() => patch(item.id, { saleColour: colour.hex })}
-                  />
-                ))}
-                <input
-                  type="color"
-                  value={item.saleColour}
-                  onChange={(event) => patch(item.id, { saleColour: event.target.value.toUpperCase() })}
-                  aria-label="직접 고르기"
-                />
-              </div>
-              <b
-                className="store-sale-badge"
-                style={{ "--sale": item.saleColour, "--on-sale": readableOn(item.saleColour) } as React.CSSProperties}
-              >
-                30% 할인
-              </b>
             </div>
 
             <div className="store-admin-foot">

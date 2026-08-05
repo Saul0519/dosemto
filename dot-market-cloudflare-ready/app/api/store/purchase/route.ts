@@ -57,6 +57,7 @@ async function notify(purchase: StorePurchase) {
       embeds: [{
         color: 0x4a7439,
         fields: [
+          { name: "주문번호", value: purchase.orderNo, inline: true },
           { name: "도스 닉네임", value: purchase.mcNick, inline: true },
           { name: "금액", value: won(purchase.price), inline: true },
           { name: "기간", value: purchase.planLabel, inline: true },
@@ -64,6 +65,18 @@ async function notify(purchase: StorePurchase) {
           ...(purchase.note ? [{ name: "남긴 말", value: purchase.note, inline: false }] : []),
         ],
         timestamp: purchase.createdAt,
+      }],
+      // Pressing this marks the purchase handed over and sends the buyer their
+      // review link, so the whole handover happens without opening the site.
+      components: [{
+        type: 1,
+        components: [{
+          type: 2,
+          style: 3,
+          label: "전달 완료",
+          custom_id: `storedone:${purchase.id}`,
+          emoji: { name: "📦" },
+        }],
       }],
     }),
   });

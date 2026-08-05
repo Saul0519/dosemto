@@ -2,6 +2,7 @@ import Link from "next/link";
 import { StoreItem } from "../../db/store";
 import { ItemRating } from "../../db/store-reviews";
 import { discountPercent, effectivePrice, isOnSale, readableOn, won } from "../../db/store-plans";
+import type { CSSProperties } from "react";
 
 /**
  * The grid is a set of doorways, not a checkout. Each card shows the cheapest
@@ -23,17 +24,20 @@ export default function StoreList({ items, ratings }: {
         const cover = item.images[0];
 
         return (
-          <Link
-            className="store-card"
-            key={item.id}
-            href={`/store/${item.id}`}
-            style={{ "--sale": item.saleColour, "--on-sale": readableOn(item.saleColour) } as React.CSSProperties}
-          >
+          <Link className="store-card" key={item.id} href={`/store/${item.id}`}>
             <div className="store-card-shot">
               {cover
                 ? <img src={`/api/store-images/${cover.id}`} alt={item.name} loading="lazy"/>
                 : <span className="store-card-blank" aria-hidden="true"><i/><i/><i/><i/></span>}
-              {isOnSale(best) && <b className="store-sale-badge">{discountPercent(best)}% 할인</b>}
+              {/* The loudest discount speaks for the card, in its own colour. */}
+              {isOnSale(best) && (
+                <b
+                  className="store-sale-badge"
+                  style={{ "--sale": best.colour, "--on-sale": readableOn(best.colour) } as CSSProperties}
+                >
+                  {discountPercent(best)}% 할인
+                </b>
+              )}
             </div>
 
             <div className="store-card-body">
@@ -42,9 +46,12 @@ export default function StoreList({ items, ratings }: {
               {item.description && <p className="store-desc">{item.description}</p>}
 
               <div className="store-card-foot">
-                <span className="store-card-price">
+                <span
+                  className="store-card-price"
+                  style={{ "--sale": cheapest.colour } as CSSProperties}
+                >
                   {isOnSale(cheapest) && <s>{won(cheapest.price)}</s>}
-                  <strong>{won(effectivePrice(cheapest))}</strong>
+                  <strong className={isOnSale(cheapest) ? "on-sale" : ""}>{won(effectivePrice(cheapest))}</strong>
                   <small>{cheapest.label}부터</small>
                 </span>
                 {rating && rating.count > 0 && (

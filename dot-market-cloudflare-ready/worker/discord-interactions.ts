@@ -87,7 +87,22 @@ export async function handleInteraction(request: Request, env: Env, ctx: Ctx): P
 
   const customId = interaction.data?.custom_id ?? "";
   const [action, orderId] = customId.split(":");
-  if (!orderId || !["accept", "reject", "complete"].includes(action)) {
+  if (!orderId) return ephemeral("알 수 없는 버튼입니다.");
+
+  // Store purchases live in their own tables with their own flow, so they get a
+  // handler of their own rather than another branch inside the order one.
+  if (action === "storedone") {
+    ctx.waitUntil(handStoreItemOver({
+      env,
+      purchaseId: orderId,
+      channelId: interaction.channel_id ?? "",
+      messageId: interaction.message?.id ?? "",
+      origin: new URL(request.url).origin,
+    }));
+    return json({ type: DEFERRED_UPDATE_MESSAGE });
+  }
+
+  if (!["accept", "reject", "complete"].includes(action)) {
     return ephemeral("알 수 없는 버튼입니다.");
   }
 
@@ -267,6 +282,87 @@ async function applyAction(input: {
       }),
     }).catch(() => undefined);
   }
+}
+
+/**
+ * Marks a store purchase handed over and sends the buyer their review link.
+ *
+ * The link is the only thing the buyer needs afterwards, so if the DM cannot
+ * reach them it goes back to the channel the button was pressed in, addressed
+ * to them — otherwise a blocked DM quietly loses the review.
+ */
+async function handStoreItemOver(input: {
+  env: Env;
+  purchaseId: string;
+  channelId: string;
+  messageId: string;
+  origin: string;
+}) {
+  const { env, purchaseId, channelId, messageId, origin } = input;
+  const token = env.DISCORD_BOT_TOKEN?.trim();
+  if (!env.DB || !token) return;
+
+  const purchase = await env.DB.prepare(
+    `SELECT order_no, item_name, plan_label, price, mc_nick, buyer_id
+       FROM store_purchases WHERE id = ?`,
+  ).bind(purchaseId).first<{
+    order_no: string | null; item_name: string; plan_label: string;
+    price: number; mc_nick: string; buyer_id: string;
+  }>().catch(() => null);
+  if (!purchase) return;
+
+  // Conditional, so a second press finds nothing to change and nobody is sent
+  // the same link twice.
+  const updated = await env.DB.prepare(
+    "UPDATE store_purchases SET status = 'handled' WHERE id = ? AND status != 'handled'",
+  ).bind(purchaseId).run().catch(() => null);
+  if (!updated?.meta.changes) return;
+
+  const api = "https://discord.com/api/v10";
+  const headers = {
+    authorization: `Bot ${token}`,
+    "content-type": "application/json",
+    "user-agent": "DotMarket (https://dosemto.store, 1.0)",
+  };
+
+  const orderNo = purchase.order_no ?? purchaseId.slice(0, 8).toUpperCase();
+  const reviewUrl = `${origin}/store/review/${orderNo}`;
+  const won = `${purchase.price.toLocaleString("ko-KR")}원`;
+
+  if (channelId && messageId) {
+    await fetch(`${api}/channels/${channelId}/messages/${messageId}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({
+        content: `📦 **${purchase.item_name}** · ${purchase.plan_label} · 전달 완료 (${orderNo})`,
+        components: [],
+      }),
+    }).catch(() => undefined);
+  }
+
+  const dm = {
+    content: `**${purchase.item_name}** 전달이 끝났습니다.`,
+    embeds: [{
+      title: `주문 ${orderNo}`,
+      color: 0x6654a8,
+      description: `${purchase.plan_label} · ${won}\n\n`
+        + `써보시고 어떠셨는지 남겨주시면 다음 사람이 고르는 데 도움이 됩니다.\n${reviewUrl}`,
+    }],
+  };
+
+  const sent = await sendDm(api, headers, purchase.buyer_id, dm);
+  if (sent || !channelId) return;
+
+  await fetch(`${api}/channels/${channelId}/messages`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      content: `<@${purchase.buyer_id}> ${dm.content}\n`
+        + "(DM이 닿지 않아 여기로 보냅니다. 사이트 \"내 주문\"에서도 후기를 남기실 수 있습니다.)",
+      allowed_mentions: { users: [purchase.buyer_id] },
+      embeds: dm.embeds,
+    }),
+  }).catch(() => undefined);
 }
 
 async function sendDm(

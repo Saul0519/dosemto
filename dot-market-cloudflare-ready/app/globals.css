@@ -1762,8 +1762,6 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 }
 
 .store-card {
-  --sale: var(--coral);
-  --on-sale: #fff;
   display: grid;
   align-content: start;
   overflow: hidden;
@@ -1801,7 +1799,7 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 .store-card-body { display: grid; gap: 8px; padding: 18px 20px 20px; }
 .store-tagline {
   margin: 0;
-  color: var(--sale, var(--coral-ink));
+  color: var(--coral-ink);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: .08em;
@@ -1828,6 +1826,7 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 .store-card-price { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
 .store-card-price s { color: var(--ink-3); font-size: 12px; }
 .store-card-price strong { font-family: var(--font-mono); font-size: 17px; }
+.store-card-price strong.on-sale { color: var(--sale, var(--coral-ink)); }
 .store-card-price small { color: var(--ink-3); font-size: 11px; }
 .store-card-rating { margin-left: auto; color: var(--ink-3); font-size: 12px; white-space: nowrap; }
 
@@ -1909,12 +1908,35 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 .store-detail-stats { margin: 0; display: flex; gap: 8px; flex-wrap: wrap; color: var(--ink-3); font-size: 12px; }
 .store-detail-stats a { color: var(--ink-2); }
 .store-detail-how {
+  counter-reset: step;
+  list-style: none;
+  display: grid;
+  gap: 7px;
   margin: 4px 0 0;
-  padding-top: 14px;
+  padding: 14px 0 0;
   border-top: 1px solid var(--line);
   color: var(--ink-3);
   font-size: 12px;
-  line-height: 1.7;
+  line-height: 1.6;
+}
+.store-detail-how li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  counter-increment: step;
+}
+.store-detail-how li::before {
+  content: counter(step);
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--paper-sunk);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
 }
 
 .store-plans { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 8px; }
@@ -2121,8 +2143,9 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 .store-shot-add:hover { border-color: var(--ink-3); color: var(--ink-2); }
 .store-shot-add input { display: none; }
 
-.sale-colour { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.sale-colour-title { font-size: 12px; font-weight: 700; }
+.plan-row { flex-wrap: wrap; }
+.sale-colour { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex-basis: 100%; }
+.sale-colour .field-help { margin: 0; }
 .sale-colour-picks { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .sale-colour-picks button {
   width: 24px;

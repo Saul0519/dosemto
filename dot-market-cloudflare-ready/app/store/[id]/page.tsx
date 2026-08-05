@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getItem } from "../../../db/store";
 import { getItemRating, listItemReviews } from "../../../db/store-reviews";
-import { readableOn } from "../../../db/store-plans";
 import { getUser } from "../../session";
 import { SITE } from "../../site-content";
 import BuyPanel from "./buy";
@@ -29,10 +28,7 @@ export default async function StoreItemPage({ params }: { params: Promise<{ id: 
   ]);
 
   return (
-    <div
-      className="market-page"
-      style={{ "--sale": item.saleColour, "--on-sale": readableOn(item.saleColour) } as React.CSSProperties}
-    >
+    <div className="market-page">
       <header className="market-header">
         <div className="wrap">
           <Link className="brand" href="/">
@@ -74,10 +70,11 @@ export default async function StoreItemPage({ params }: { params: Promise<{ id: 
 
                 <BuyPanel item={item} signedIn={Boolean(user)} buyerName={user?.name ?? ""}/>
 
-                <p className="store-detail-how">
-                  사이트에서 결제하지 않습니다. 구매 요청을 넣으면 운영자가 연락해 인게임 머니를
-                  받고, 모드 파일과 라이선스 코드를 디스코드로 보내드립니다.
-                </p>
+                <ol className="store-detail-how">
+                  <li>구매를 누르면 운영자에게 알림이 갑니다.</li>
+                  <li>게임에 접속해 인게임 머니를 주고받습니다.</li>
+                  <li>모드 파일과 라이선스 코드를 디스코드로 보내드립니다.</li>
+                </ol>
               </aside>
             </div>
 
