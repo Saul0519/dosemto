@@ -104,8 +104,7 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
                   </dd>
                 </div>
               )}
-              <div><dt>받는 것</dt><dd>게임 안 이젤에 그려진 그림</dd></div>
-              <div><dt>연락</dt><dd>주문 시 남긴 디스코드 ID</dd></div>
+              <div><dt>연락</dt><dd>로그인한 디스코드 계정</dd></div>
               {slots.enabled && (
                 <div><dt>접수 슬롯</dt><dd>{slots.full ? `가득 참 (${slots.used}/${slots.max})` : `${slots.used}/${slots.max} · ${slots.free}칸 남음`}</dd></div>
               )}
