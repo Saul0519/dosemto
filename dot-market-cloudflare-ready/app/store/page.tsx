@@ -3,6 +3,7 @@ import { listActiveItems } from "../../db/store";
 import { listItemRatings } from "../../db/store-reviews";
 import { SITE } from "../site-content";
 import StoreList from "./list";
+import CountView from "../count-view";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export default async function StorePage() {
 
   return (
     <div className="market-page">
+      <CountView event="store"/>
       <header className="market-header">
         <div className="wrap">
           <Link className="brand" href="/">

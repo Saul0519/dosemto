@@ -6,6 +6,7 @@ import { getUser } from "../../session";
 import { SITE } from "../../site-content";
 import BuyPanel from "./buy";
 import Shots from "./shots";
+import CountView from "../../count-view";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ export default async function StoreItemPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="market-page">
+      <CountView event="store_item"/>
       <header className="market-header">
         <div className="wrap">
           <Link className="brand" href="/">

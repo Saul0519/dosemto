@@ -2249,3 +2249,155 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
   background: var(--paper); font-size: 12px; font-weight: 700; cursor: pointer;
 }
 .my-order-gone { color: var(--ink-3); font-size: 12px; }
+
+/* ── 숫자판 ──────────────────────────────────────────────────────────────
+   Owner only. Dense on purpose: the point is to take it all in at a glance,
+   not to admire it. */
+
+.stat-periods { display: flex; gap: 6px; }
+.stat-periods button {
+  padding: 6px 13px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.stat-periods button.on { border-color: var(--ink); background: var(--ink); color: var(--ink-invert); }
+.stat-periods button:disabled { opacity: .5; cursor: default; }
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.stat-tile {
+  display: grid;
+  gap: 5px;
+  padding: 18px;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: var(--card);
+}
+.stat-tile span { color: var(--ink-3); font-size: 11px; font-weight: 700; letter-spacing: .04em; }
+.stat-tile b { font-family: var(--font-mono); font-size: 24px; letter-spacing: -.02em; }
+.stat-tile small { color: var(--ink-3); font-size: 11px; line-height: 1.5; }
+
+.stat-funnel, .stat-days, .stat-table { margin-bottom: 26px; }
+.stat-funnel h3, .stat-days h3, .stat-table h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.stat-funnel-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+.stat-funnel-rows > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+}
+.stat-funnel-rows span { color: var(--ink-3); font-size: 12px; }
+.stat-funnel-rows b { margin-left: auto; font-family: var(--font-mono); font-size: 16px; }
+.stat-funnel-rows em {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--sage);
+  color: var(--sage-ink);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.stat-days ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.stat-days li { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.stat-days li span { width: 42px; color: var(--ink-3); font-family: var(--font-mono); }
+.stat-days li i { height: 14px; min-width: 2px; border-radius: 3px; background: var(--sage-ink); }
+.stat-days li b { font-family: var(--font-mono); }
+
+.stat-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.stat-table th, .stat-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+.stat-table th { color: var(--ink-3); font-size: 11px; font-weight: 700; }
+.stat-table td:not(:first-child), .stat-table th:not(:first-child) { text-align: right; }
+.stat-money { font-family: var(--font-mono); }
+
+.stat-note {
+  margin: 0 0 26px;
+  padding: 12px 15px;
+  border-radius: 10px;
+  background: var(--paper-sunk);
+  font-size: 13px;
+}
+
+/* ── 후기 부탁 ───────────────────────────────────────────────────────────
+   A card, not a modal: it should be easy to ignore. */
+
+.nudge {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 55;
+  width: min(calc(100vw - 40px), 330px);
+  display: grid;
+  gap: 7px;
+  padding: 20px 22px 18px;
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  background: var(--paper);
+  box-shadow: 0 16px 40px rgba(22, 21, 26, .16);
+}
+.nudge-x {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-3);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+.nudge-x:hover { background: var(--paper-sunk); color: var(--ink); }
+.nudge-eyebrow {
+  margin: 0;
+  color: var(--coral-ink);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+.nudge-line { margin: 0; font-size: 15px; line-height: 1.5; }
+.nudge-why { margin: 0; color: var(--ink-2); font-size: 12px; line-height: 1.65; }
+.nudge-actions { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+.nudge-actions .btn { padding: 9px 15px; font-size: 13px; }
+.nudge-actions > button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.nudge-actions > button:hover { color: var(--ink); }
+
+@media (max-width: 520px) {
+  .nudge { right: 12px; left: 12px; bottom: 12px; width: auto; }
+}

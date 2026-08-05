@@ -6,6 +6,7 @@ import { countActiveOrders, findOpenOrderFor } from "../../../db/orders";
 import { getPublicShop } from "../../../db/shops";
 import { slotState } from "../../../db/slots";
 import { turnstileSiteKey } from "../../../db/turnstile";
+import CountView from "../../count-view";
 
 export const dynamic = "force-dynamic";
 
@@ -23,13 +24,16 @@ export default async function ShopPage({ params }: { params: Promise<{ slug: str
   const openOrder = user ? await findOpenOrderFor(shop.id, user.id).catch(() => null) : null;
 
   return (
-    <PixelOrderStudio
-      shop={shop}
-      captchaSiteKey={captchaSiteKey}
-      userName={user?.name ?? null}
-      loginConfigured={configured}
-      slots={{ enabled: slots.enabled, used: slots.used, max: slots.max, full: slots.full }}
-      openOrderId={openOrder?.id ?? null}
-    />
+    <>
+      <CountView event="shop"/>
+      <PixelOrderStudio
+        shop={shop}
+        captchaSiteKey={captchaSiteKey}
+        userName={user?.name ?? null}
+        loginConfigured={configured}
+        slots={{ enabled: slots.enabled, used: slots.used, max: slots.max, full: slots.full }}
+        openOrderId={openOrder?.id ?? null}
+      />
+    </>
   );
 }

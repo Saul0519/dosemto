@@ -9,6 +9,9 @@ import ShuffleButton from "./shuffle-button";
 import { getUser } from "./session";
 import { getPopup } from "../db/popup";
 import EntryPopup from "./entry-popup";
+import CountView from "./count-view";
+import ReviewNudge from "./review-nudge";
+import { findNudge } from "../db/review-nudge";
 import { DOSE_DISPLAY_FAMILIES } from "./dose-palette";
 import {
   FACTS,
@@ -46,6 +49,9 @@ export default async function Home({ searchParams }: {
     getPopup().catch(() => null),
   ]);
 
+  // Only signed-in visitors can owe a review, so nobody else pays for the query.
+  const nudge = user ? await findNudge(user.id).catch(() => null) : null;
+
   // The shuffle lives in the URL: this page renders more than once per request,
   // so a seed invented here would differ between those renders and the order
   // would not survive hydration. ShuffleButton picks a new one on click.
@@ -78,7 +84,9 @@ export default async function Home({ searchParams }: {
 
   return (
     <div className="market-page">
+      <CountView event="home"/>
       {popup && <EntryPopup popup={popup}/>}
+      {nudge && <ReviewNudge nudge={nudge}/>}
       <header className="market-header">
         <div className="wrap">
           <Link className="brand" href="/">

@@ -7,6 +7,7 @@ import { discordConfig } from "../../db/discord-session";
 import { getStoreChannelId, listAllItems, listPurchases } from "../../db/store";
 import { listAllReviews as listAllStoreReviews } from "../../db/store-reviews";
 import { getPopupForOwner } from "../../db/popup";
+import { readStats } from "../../db/stats";
 import ControlPanel from "./panel";
 
 export const dynamic = "force-dynamic";
@@ -24,12 +25,13 @@ export default async function ControlPage() {
     discordConfig().catch(() => ({ clientId: "" })),
   ]);
 
-  const [storeItems, storePurchases, storeReviews, storeChannelId, popup] = await Promise.all([
+  const [storeItems, storePurchases, storeReviews, storeChannelId, popup, stats] = await Promise.all([
     listAllItems().catch(() => []),
     listPurchases().catch(() => []),
     listAllStoreReviews().catch(() => []),
     getStoreChannelId().catch(() => ""),
     getPopupForOwner().catch(() => ({ active: false, linkUrl: "", imageUrl: null, alt: "", version: "" })),
+    readStats(7).catch(() => null),
   ]);
 
   /**
@@ -52,6 +54,7 @@ export default async function ControlPage() {
       storeReviews={storeReviews}
       storeChannelId={storeChannelId}
       popup={popup}
+      stats={stats}
     />
   );
 }
