@@ -214,9 +214,13 @@ export default async function Home({ searchParams }: {
                   </div>
                   <div className="shop-card-copy">
                     <div>
-                      {shop.premium
-                        ? <small className="shop-premium">PREMIUM</small>
-                        : <small>/{shop.slug}</small>}
+                      {/* The badge sits beside the address rather than in place
+                          of it — a premium shop still has one, and it is how
+                          people find the shop. */}
+                      <span className="shop-card-id">
+                        {shop.premium && <small className="shop-premium">PREMIUM</small>}
+                        <small>/{shop.slug}</small>
+                      </span>
                       {!shop.webhookConfigured ? <span className="preparing">준비 중</span>
                         : shop.slots.full ? <span className="closed">접수 마감</span>
                         : shop.slots.enabled ? <span className="ready">슬롯 {shop.slots.used}/{shop.slots.max}</span>

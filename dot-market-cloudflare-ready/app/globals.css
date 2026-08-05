@@ -1665,8 +1665,9 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 
 /* ── 프리미엄 · 추천순 고정 ─────────────────────────────────────────────── */
 
-/* Sits where the /slug line normally is, so it is the first thing read on the
-   card. Warm and saturated against a page that is otherwise paper and ink. */
+/* Sits beside the /slug line. Warm and saturated against a page that is
+   otherwise paper and ink. */
+.shop-card-id { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .shop-card-copy .shop-premium {
   padding: 3px 9px;
   border-radius: 999px;
