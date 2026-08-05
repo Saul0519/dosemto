@@ -10,6 +10,13 @@ function validChannelId(value: string) {
   return /^\d{17,20}$/.test(value);
 }
 
+/** An optional per-outcome channel: blank clears it, a bad id is ignored. */
+function outcomeChannel(value: unknown) {
+  const candidate = String(value ?? "").trim();
+  if (!candidate) return null;
+  return validChannelId(candidate) ? candidate : null;
+}
+
 export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 });
@@ -65,6 +72,11 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       sizeSurcharges,
       sizeSurchargeOn: body.sizeSurchargeOn === true,
       channelId,
+      // Blank means "use the order channel"; a malformed id is dropped rather
+      // than stored, since a channel the bot cannot reach just loses messages.
+      acceptChannelId: outcomeChannel(body.acceptChannelId),
+      rejectChannelId: outcomeChannel(body.rejectChannelId),
+      completeChannelId: outcomeChannel(body.completeChannelId),
       slotMax,
       slotManual,
     });

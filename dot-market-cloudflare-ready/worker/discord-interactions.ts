@@ -125,16 +125,26 @@ async function applyAction(input: {
 
   const order = await env.DB.prepare(
     `SELECT o.id, o.status, o.player_uuid, o.player_name, o.tile_count, o.deadline,
-            o.total_price, s.name AS shop_name, s.slug AS shop_slug
+            o.total_price, s.name AS shop_name, s.slug AS shop_slug,
+            s.channel_id, s.accept_channel_id, s.reject_channel_id, s.complete_channel_id
        FROM orders o JOIN shops s ON s.id = o.shop_id WHERE o.id = ?`,
   ).bind(orderId).first<{
     id: string; status: string; player_uuid: string | null; player_name: string | null;
     tile_count: number; deadline: number; total_price: number;
     shop_name: string; shop_slug: string;
+    channel_id: string | null; accept_channel_id: string | null;
+    reject_channel_id: string | null; complete_channel_id: string | null;
   }>().catch(() => null);
   if (!order) return;
 
   const status = STATUS_FOR[action];
+
+  // Each outcome can have its own channel. Unset falls back to the order
+  // channel, and that in turn to wherever the button was pressed — so this
+  // still works for a shop that never opened the setting.
+  const outcomeChannel = (action === "accept" ? order.accept_channel_id
+    : action === "reject" ? order.reject_channel_id
+    : order.complete_channel_id) || order.channel_id || channelId;
 
   // Conditional update: a second press finds nothing to change and stops here,
   // so nobody gets two DMs for one click.
@@ -175,8 +185,8 @@ async function applyAction(input: {
       }],
     };
     // A fresh message so the finish button is separate from the handled one.
-    if (channelId) {
-      await fetch(`${api}/channels/${channelId}/messages`, {
+    if (outcomeChannel) {
+      await fetch(`${api}/channels/${outcomeChannel}/messages`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -227,10 +237,11 @@ async function applyAction(input: {
   if (!dm || !order.player_uuid) return;
 
   const sent = await sendDm(api, headers, order.player_uuid, dm);
-  if (!sent && channelId) {
-    // DMs fail when the customer blocks them or shares no server with the bot.
-    // Falling back to a mention keeps the message reachable either way.
-    await fetch(`${api}/channels/${channelId}/messages`, {
+  if (!sent && outcomeChannel) {
+    // A bot can only DM someone it shares a server with, and only if they allow
+    // it — most customers are neither. The mention is a best effort; the order
+    // screen at /me is what everyone can actually rely on.
+    await fetch(`${api}/channels/${outcomeChannel}/messages`, {
       method: "POST",
       headers,
       body: JSON.stringify({

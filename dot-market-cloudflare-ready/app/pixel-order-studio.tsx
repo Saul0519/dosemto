@@ -382,7 +382,7 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, userName, login
       }
       if (!response.ok) throw new Error(result.error || "주문 전송에 실패했습니다.");
       setOrderState("sent");
-      setOrderMessage(`주문이 전송되었습니다. 주문번호 ${result.orderId}`);
+      setOrderMessage(`주문이 전송되었습니다. 주문번호 ${result.orderId} · 진행 상황은 내 주문(/me)에서 확인하세요.`);
     } catch (error) {
       setOrderState("error");
       setOrderMessage(error instanceof Error ? error.message : "주문 전송에 실패했습니다.");
@@ -558,7 +558,7 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, userName, login
             <div className="order-player">
               <span>주문자</span>
               <b>{userName}</b>
-              <small>이 디스코드 계정으로 접수되고, 진행 상황도 여기로 안내됩니다.</small>
+              <small>이 계정으로 접수됩니다. 진행 상황은 <a href="/me">내 주문</a>에서 확인하실 수 있고, 봇과 같은 서버에 계시면 디스코드로도 알려드립니다.</small>
             </div>
 
             {openOrderId && (
@@ -578,7 +578,7 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, userName, login
             <p className={`order-status ${orderState}`}>{orderMessage || <><Icon name="lock" size={14}/> 올리신 파일이 화질 그대로 샵 디스코드로 전송됩니다.</>}</p>
           </> : <div className="order-login">
             <b>주문하려면 디스코드 로그인이 필요합니다</b>
-            <span>연락처를 따로 적지 않아도 되고, 수락·거절·완성 알림이 디스코드로 갑니다. 미리보기는 로그인 없이 그대로 보실 수 있습니다.</span>
+            <span>연락처를 따로 적지 않아도 되고, 수락·거절·완성은 내 주문 화면에서 확인하실 수 있습니다. 미리보기는 로그인 없이 그대로 보실 수 있습니다.</span>
             {loginConfigured
               ? <a className="order-button" href={`/login?next=${encodeURIComponent(`/shop/${shop.slug}`)}`}>디스코드로 로그인 <span>→</span></a>
               : <p className="order-status error">마인크래프트 로그인이 아직 설정되지 않았습니다. 샵 관리자에게 알려주세요.</p>}

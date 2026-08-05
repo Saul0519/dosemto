@@ -30,6 +30,9 @@ type ShopRow = {
   loyalty_tiers: string | null;
   size_surcharges: string | null;
   size_surcharge_on: number;
+  accept_channel_id: string | null;
+  reject_channel_id: string | null;
+  complete_channel_id: string | null;
   active: number;
   created_at: string;
   updated_at: string;
@@ -89,6 +92,14 @@ export type ManagedShop = PublicShop & {
   managerEmail: string;
   active: boolean;
   updatedAt: string;
+  /**
+   * Channels for each outcome, each falling back to the order channel. Only on
+   * the managed shape: a customer has no use for them, and PublicShop is handed
+   * whole to the order screen's client component.
+   */
+  acceptChannelId: string | null;
+  rejectChannelId: string | null;
+  completeChannelId: string | null;
 };
 
 /** Nothing extra any more: order notifications go through the bot. */
@@ -187,6 +198,10 @@ async function migrateShopsTable() {
   // Extra per canvas on large pictures, and whether the shop charges it at all.
   await db.prepare("ALTER TABLE shops ADD COLUMN size_surcharges TEXT").run().catch(() => undefined);
   await db.prepare("ALTER TABLE shops ADD COLUMN size_surcharge_on INTEGER NOT NULL DEFAULT 0").run().catch(() => undefined);
+  // Where each outcome is announced. Null means "wherever orders go".
+  for (const column of ["accept_channel_id", "reject_channel_id", "complete_channel_id"]) {
+    await db.prepare(`ALTER TABLE shops ADD COLUMN ${column} TEXT`).run().catch(() => undefined);
+  }
 
   await seedDefaultShopOnce(db);
 }
@@ -239,7 +254,8 @@ async function seedDefaultShopOnce(db: Awaited<ReturnType<typeof getD1>>) {
 
 const selectColumns = `id, slug, name, description, about_title, about_text, manager_email,
   webhook_ciphertext, webhook_iv, channel_id, guild_id, slot_max, slot_manual, cover_image_id,
-  premium, loyalty_tiers, size_surcharges, size_surcharge_on, tile_price,
+  premium, loyalty_tiers, size_surcharges, size_surcharge_on,
+  accept_channel_id, reject_channel_id, complete_channel_id, tile_price,
   day_1_multiplier, day_2_multiplier, day_3_multiplier, day_4_multiplier,
   day_5_multiplier, day_6_multiplier, day_7_multiplier,
   active, created_at, updated_at`;
@@ -327,6 +343,9 @@ function toManagedShop(row: ShopRow, images: ShopImage[] = []): ManagedShop {
     aboutText: row.about_text,
     images,
     managerEmail: row.manager_email,
+    acceptChannelId: row.accept_channel_id,
+    rejectChannelId: row.reject_channel_id,
+    completeChannelId: row.complete_channel_id,
     pricing: rowPricing(row),
     channelId: row.channel_id,
     guildId: row.guild_id,
@@ -459,6 +478,10 @@ export async function updateShopSettings(id: string, input: {
   sizeSurcharges: SizeSurcharge[];
   sizeSurchargeOn: boolean;
   channelId?: string | null;
+  /** Undefined leaves a channel as it was; an empty value clears it. */
+  acceptChannelId?: string | null;
+  rejectChannelId?: string | null;
+  completeChannelId?: string | null;
   /** Required, not optional: omitting these would silently reset the queue. */
   slotMax: number;
   slotManual: number;
@@ -481,6 +504,17 @@ export async function updateShopSettings(id: string, input: {
   const loyaltyTiers = serialiseTiers(input.loyaltyTiers ?? []);
   const sizeSurcharges = serialiseSurcharges(input.sizeSurcharges ?? []);
   const sizeSurchargeOn = input.sizeSurchargeOn ? 1 : 0;
+
+  // Written separately from the main UPDATE so "leave as is" stays possible for
+  // each one without four variants of the statement.
+  for (const [column, value] of [
+    ["accept_channel_id", input.acceptChannelId],
+    ["reject_channel_id", input.rejectChannelId],
+    ["complete_channel_id", input.completeChannelId],
+  ] as const) {
+    if (value === undefined) continue;
+    await db.prepare(`UPDATE shops SET ${column} = ? WHERE id = ?`).bind(value || null, id).run();
+  }
 
   if (input.channelId !== undefined) {
     await db.prepare(`UPDATE shops SET name = ?, description = ?, about_title = ?, about_text = ?, tile_price = ?,

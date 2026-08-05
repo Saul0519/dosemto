@@ -23,6 +23,9 @@ type ManagedShop = {
   pricing: Pricing;
   webhookConfigured: boolean;
   channelId: string | null;
+  acceptChannelId: string | null;
+  rejectChannelId: string | null;
+  completeChannelId: string | null;
   guildId: string | null;
   coverImageId: string | null;
   loyaltyTiers: LoyaltyTier[];
@@ -171,6 +174,7 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
     shop.name, shop.description, shop.aboutTitle, shop.aboutText,
     shop.pricing.tilePrice, shop.pricing.deadlineMultipliers,
     shop.loyaltyTiers, shop.sizeSurcharges, shop.sizeSurchargeOn,
+    shop.acceptChannelId, shop.rejectChannelId, shop.completeChannelId,
     shop.slotMax, shop.slotManual,
   ]);
   const dirty = Boolean(draft) && (
@@ -206,6 +210,9 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
           slotManual: draft.slotManual,
           channelId,
           removeChannel,
+          acceptChannelId: draft.acceptChannelId,
+          rejectChannelId: draft.rejectChannelId,
+          completeChannelId: draft.completeChannelId,
         }),
       });
       const result = await readResult(response, "저장하지 못했습니다.");
@@ -487,6 +494,27 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
                   <label>알림 채널 ID<input inputMode="numeric" autoComplete="off" value={channelId} onChange={(e) => { setChannelId(e.target.value); setRemoveChannel(false); }} placeholder={draft.channelId ?? "봇을 초대하면 목록에서 고를 수 있습니다"}/><small>{needsInvite ? "봇이 아직 서버에 없습니다. 위의 초대 버튼을 눌러주세요. 직접 채널 ID를 붙여넣어도 됩니다." : "채널 목록을 불러오는 중입니다."}</small></label>
                 )}
                 {draft.webhookConfigured && <label className="check-row"><input type="checkbox" checked={removeChannel} onChange={(e) => { setRemoveChannel(e.target.checked); if (e.target.checked) setChannelId(""); }}/><span>알림 채널 연결 해제 (주문 접수 중단)</span></label>}
+
+                <div className="outcome-channels">
+                  <p className="field-help">수락·거절·완성을 따로 모으고 싶으면 아래에서 채널을 나눠주세요. 비워두면 전부 위의 알림 채널로 갑니다.</p>
+                  {([
+                    ["acceptChannelId", "수락한 주문"],
+                    ["rejectChannelId", "거절한 주문"],
+                    ["completeChannelId", "완성한 주문"],
+                  ] as const).map(([key, label]) => (
+                    <label key={key}>
+                      {label}
+                      {channels.length > 0 ? (
+                        <select value={draft[key] ?? ""} onChange={(e) => setDraft({ ...draft, [key]: e.target.value || null })}>
+                          <option value="">주문 채널과 같이</option>
+                          {channels.map((channel) => <option value={channel.id} key={channel.id}>#{channel.name}</option>)}
+                        </select>
+                      ) : (
+                        <input inputMode="numeric" autoComplete="off" value={draft[key] ?? ""} placeholder="주문 채널과 같이" onChange={(e) => setDraft({ ...draft, [key]: e.target.value || null })}/>
+                      )}
+                    </label>
+                  ))}
+                </div>
               </section>
 
               <section className="settings-card">
