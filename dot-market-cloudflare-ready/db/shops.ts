@@ -1,5 +1,6 @@
 import { BASE_DEADLINE, RUSH_DEADLINE } from "./deadlines";
 import { LoyaltyTier, parseTiers, serialiseTiers } from "./loyalty";
+import { SizeSurcharge, parseSurcharges, serialiseSurcharges } from "./size-surcharge";
 import { DEFAULT_PRICING, PricingConfig } from "./pricing";
 
 type ShopRow = {
@@ -27,6 +28,8 @@ type ShopRow = {
   cover_image_id: string | null;
   premium: number;
   loyalty_tiers: string | null;
+  size_surcharges: string | null;
+  size_surcharge_on: number;
   active: number;
   created_at: string;
   updated_at: string;
@@ -77,6 +80,9 @@ export type PublicShop = {
   premium: boolean;
   /** What this shop calls its repeat customers, and from how many orders. */
   loyaltyTiers: LoyaltyTier[];
+  /** Bands of extra charge for large pictures. Only applied when switched on. */
+  sizeSurcharges: SizeSurcharge[];
+  sizeSurchargeOn: boolean;
 };
 
 export type ManagedShop = PublicShop & {
@@ -178,6 +184,9 @@ async function migrateShopsTable() {
   await db.prepare("ALTER TABLE shops ADD COLUMN feature_rank INTEGER NOT NULL DEFAULT 0").run().catch(() => undefined);
   // Titles the shop gives its repeat customers, as JSON. Null means defaults.
   await db.prepare("ALTER TABLE shops ADD COLUMN loyalty_tiers TEXT").run().catch(() => undefined);
+  // Extra per canvas on large pictures, and whether the shop charges it at all.
+  await db.prepare("ALTER TABLE shops ADD COLUMN size_surcharges TEXT").run().catch(() => undefined);
+  await db.prepare("ALTER TABLE shops ADD COLUMN size_surcharge_on INTEGER NOT NULL DEFAULT 0").run().catch(() => undefined);
 
   await seedDefaultShopOnce(db);
 }
@@ -230,7 +239,7 @@ async function seedDefaultShopOnce(db: Awaited<ReturnType<typeof getD1>>) {
 
 const selectColumns = `id, slug, name, description, about_title, about_text, manager_email,
   webhook_ciphertext, webhook_iv, channel_id, guild_id, slot_max, slot_manual, cover_image_id,
-  premium, loyalty_tiers, tile_price,
+  premium, loyalty_tiers, size_surcharges, size_surcharge_on, tile_price,
   day_1_multiplier, day_2_multiplier, day_3_multiplier, day_4_multiplier,
   day_5_multiplier, day_6_multiplier, day_7_multiplier,
   active, created_at, updated_at`;
@@ -326,6 +335,8 @@ function toManagedShop(row: ShopRow, images: ShopImage[] = []): ManagedShop {
     coverImageId: row.cover_image_id ?? null,
     premium: Boolean(row.premium),
     loyaltyTiers: parseTiers(row.loyalty_tiers),
+    sizeSurcharges: parseSurcharges(row.size_surcharges),
+    sizeSurchargeOn: Boolean(row.size_surcharge_on),
     // Orders go out through the bot now, so a channel is what makes a shop
     // reachable. The name is kept so existing callers keep working.
     webhookConfigured: Boolean(row.channel_id),
@@ -402,7 +413,7 @@ export function validSlug(slug: string) {
 export function validPricing(value: unknown): value is PricingConfig {
   if (!value || typeof value !== "object") return false;
   const pricing = value as PricingConfig;
-  if (!Number.isInteger(pricing.tilePrice) || pricing.tilePrice < 100 || pricing.tilePrice > 1_000_000) return false;
+  if (!Number.isInteger(pricing.tilePrice) || pricing.tilePrice < 100 || pricing.tilePrice > 10_000_000) return false;
   // Only the two turnarounds a shop can actually offer are required; the other
   // columns are filled from the base rate on write.
   return [RUSH_DEADLINE, BASE_DEADLINE].every((day) => {
@@ -445,6 +456,8 @@ export async function updateShopSettings(id: string, input: {
   aboutText: string;
   pricing: PricingConfig;
   loyaltyTiers: LoyaltyTier[];
+  sizeSurcharges: SizeSurcharge[];
+  sizeSurchargeOn: boolean;
   channelId?: string | null;
   /** Required, not optional: omitting these would silently reset the queue. */
   slotMax: number;
@@ -466,24 +479,28 @@ export async function updateShopSettings(id: string, input: {
   const slotManual = Math.max(0, Math.min(999, Math.trunc(input.slotManual) || 0));
 
   const loyaltyTiers = serialiseTiers(input.loyaltyTiers ?? []);
+  const sizeSurcharges = serialiseSurcharges(input.sizeSurcharges ?? []);
+  const sizeSurchargeOn = input.sizeSurchargeOn ? 1 : 0;
 
   if (input.channelId !== undefined) {
     await db.prepare(`UPDATE shops SET name = ?, description = ?, about_title = ?, about_text = ?, tile_price = ?,
       day_1_multiplier = ?, day_2_multiplier = ?, day_3_multiplier = ?,
       day_4_multiplier = ?, day_5_multiplier = ?, day_6_multiplier = ?,
       day_7_multiplier = ?, channel_id = ?, slot_max = ?, slot_manual = ?, loyalty_tiers = ?,
+      size_surcharges = ?, size_surcharge_on = ?,
       updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(
       input.name, input.description, input.aboutTitle, input.aboutText, input.pricing.tilePrice, ...multipliers,
-      input.channelId, slotMax, slotManual, loyaltyTiers, id,
+      input.channelId, slotMax, slotManual, loyaltyTiers, sizeSurcharges, sizeSurchargeOn, id,
     ).run();
   } else {
     await db.prepare(`UPDATE shops SET name = ?, description = ?, about_title = ?, about_text = ?, tile_price = ?,
       day_1_multiplier = ?, day_2_multiplier = ?, day_3_multiplier = ?,
       day_4_multiplier = ?, day_5_multiplier = ?, day_6_multiplier = ?,
       day_7_multiplier = ?, slot_max = ?, slot_manual = ?, loyalty_tiers = ?,
+      size_surcharges = ?, size_surcharge_on = ?,
       updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(
       input.name, input.description, input.aboutTitle, input.aboutText, input.pricing.tilePrice, ...multipliers,
-      slotMax, slotManual, loyaltyTiers, id,
+      slotMax, slotManual, loyaltyTiers, sizeSurcharges, sizeSurchargeOn, id,
     ).run();
   }
 }

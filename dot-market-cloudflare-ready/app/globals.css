@@ -1719,3 +1719,13 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
   cursor: pointer;
 }
 .tier-row > button:hover { border-color: var(--danger-ink); }
+
+/* ── 큰 그림 추가금 ─────────────────────────────────────────────────────── */
+
+.tier-row small { color: var(--ink-3); font-size: 11px; }
+.tier-row label input[type="number"] { width: 96px !important; }
+
+/* One band per line in the spec rail, which is a narrow column. */
+.surcharge-line { display: block; }
+.surcharge-line + .surcharge-line { margin-top: 3px; }
+.surcharge-line b { font-weight: 700; }

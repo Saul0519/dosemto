@@ -11,6 +11,7 @@ import {
 import Link from "next/link";
 import TurnstileCaptcha from "./turnstile-captcha";
 import { BASE_DEADLINE, DEADLINE_CHOICES, deadlineLabel } from "../db/deadlines";
+import { SizeSurcharge, orderPrice, surchargeFor } from "../db/size-surcharge";
 import AccountChip from "./account-chip";
 
 type RGB = [number, number, number];
@@ -25,6 +26,8 @@ type Shop = {
   name: string;
   description: string;
   pricing: Pricing;
+  sizeSurcharges: SizeSurcharge[];
+  sizeSurchargeOn: boolean;
 };
 
 const FALLBACK_PRICING: Pricing = {
@@ -291,8 +294,15 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, userName, login
   const tileCount = gridX * gridY;
   const basePrice = tileCount * pricing.tilePrice;
   const multiplier = pricing.deadlineMultipliers[String(deadline)] ?? 1;
-  const totalPrice = Math.round((basePrice * multiplier) / 100) * 100;
-  const rushPrice = totalPrice - basePrice;
+  // Same helper the order route uses, so the estimate on screen and the price
+  // recorded on submit cannot drift apart.
+  const surcharge = surchargeFor(tileCount, shop.sizeSurcharges ?? [], shop.sizeSurchargeOn ?? false);
+  const { extra: sizePrice, total: totalPrice, rush: rushPrice } = orderPrice({
+    tileCount,
+    tilePrice: pricing.tilePrice,
+    multiplier,
+    surcharge,
+  });
 
   const changePictureWidth = (delta: number) => {
     setGridX((value) => clamp(value + delta, minimumGridX, 30));
@@ -529,6 +539,12 @@ export default function PixelOrderStudio({ shop, captchaSiteKey, userName, login
           <div className="price-breakdown">
             <h3>금액 내역</h3>
             <div><span>작품 제작 ({tileCount}장)</span><b>{formatWon(basePrice)}</b></div>
+            {surcharge && (
+              <div>
+                <span>{surcharge.label} 추가금 (장당 {formatWon(surcharge.perTile)})</span>
+                <b className="rush">+{formatWon(sizePrice)}</b>
+              </div>
+            )}
             <div><span>마감 조정 ({deadlineLabel(deadline)})</span><b className={rushPrice > 0 ? "rush" : ""}>{rushPrice > 0 ? `+${formatWon(rushPrice)}` : "추가 없음"}</b></div>
           </div>
 

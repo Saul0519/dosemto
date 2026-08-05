@@ -5,6 +5,7 @@ import Link from "next/link";
 import { readResult } from "../read-result";
 import { DEADLINE_CHOICES, deadlineLabel } from "../../db/deadlines";
 import { LoyaltyTier, MAX_TIERS } from "../../db/loyalty";
+import { MAX_SURCHARGES, SizeSurcharge, surchargeThreshold } from "../../db/size-surcharge";
 
 type Pricing = { tilePrice: number; deadlineMultipliers: Record<string, number> };
 /** Colours the save bar: a failure must not read as a success. */
@@ -25,6 +26,8 @@ type ManagedShop = {
   guildId: string | null;
   coverImageId: string | null;
   loyaltyTiers: LoyaltyTier[];
+  sizeSurcharges: SizeSurcharge[];
+  sizeSurchargeOn: boolean;
   slotMax: number;
   slotManual: number;
   active: boolean;
@@ -167,7 +170,8 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
   const fingerprint = (shop: ManagedShop | null) => shop && JSON.stringify([
     shop.name, shop.description, shop.aboutTitle, shop.aboutText,
     shop.pricing.tilePrice, shop.pricing.deadlineMultipliers,
-    shop.loyaltyTiers, shop.slotMax, shop.slotManual,
+    shop.loyaltyTiers, shop.sizeSurcharges, shop.sizeSurchargeOn,
+    shop.slotMax, shop.slotManual,
   ]);
   const dirty = Boolean(draft) && (
     fingerprint(draft) !== fingerprint(selected) || Boolean(channelId) || removeChannel
@@ -196,6 +200,8 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
           aboutText: draft.aboutText,
           pricing: draft.pricing,
           loyaltyTiers: draft.loyaltyTiers,
+          sizeSurcharges: draft.sizeSurcharges,
+          sizeSurchargeOn: draft.sizeSurchargeOn,
           slotMax: draft.slotMax,
           slotManual: draft.slotManual,
           channelId,
@@ -456,7 +462,7 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
 
               <section className="settings-card">
                 <div className="settings-section-head"><span>03</span><div><h3>가격과 마감</h3><p>한 장의 기본 가격과, 당일 마감에 붙는 배수를 설정합니다.</p></div></div>
-                <label className="price-field">32×32 한 장 기본 가격<span><input type="number" min="100" max="1000000" step="100" value={draft.pricing.tilePrice} onChange={(e) => setDraft({ ...draft, pricing: { ...draft.pricing, tilePrice: Number(e.target.value) } })}/> 원</span></label>
+                <label className="price-field">32×32 한 장 기본 가격<span><input type="number" min="100" max="10000000" step="100" value={draft.pricing.tilePrice} onChange={(e) => setDraft({ ...draft, pricing: { ...draft.pricing, tilePrice: Number(e.target.value) } })}/> 원</span></label>
                 <div className="admin-multiplier-grid">{DEADLINE_CHOICES.map((choice) => <label key={choice.value}><b>{choice.label}</b><span><input type="number" min="1" max="10" step="0.01" value={draft.pricing.deadlineMultipliers[String(choice.value)]} onChange={(e) => setDraft({ ...draft, pricing: { ...draft.pricing, deadlineMultipliers: { ...draft.pricing.deadlineMultipliers, [String(choice.value)]: Number(e.target.value) } } })}/>배</span><small>5×7 {Math.round(35 * draft.pricing.tilePrice * draft.pricing.deadlineMultipliers[String(choice.value)]).toLocaleString("ko-KR")}원</small></label>)}</div>
               </section>
 
@@ -484,7 +490,49 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
               </section>
 
               <section className="settings-card">
-                <div className="settings-section-head"><span>05</span><div><h3>단골 칭호</h3><p>같은 손님이 여러 번 주문하면 후기 옆에 붙는 이름입니다. 후기에는 몇 번째 주문인지도 함께 표시됩니다.</p></div></div>
+                <div className="settings-section-head"><span>05</span><div><h3>큰 그림 추가금</h3><p>정해둔 크기를 넘는 그림에 장당 추가금을 받습니다. 주문 화면 금액 내역과 샵 소개에 그대로 표시됩니다.</p></div><i className={draft.sizeSurchargeOn ? "connected" : "not-connected"}>{draft.sizeSurchargeOn ? "받는 중" : "안 받음"}</i></div>
+                <label className="switch-row"><input type="checkbox" checked={draft.sizeSurchargeOn} onChange={(e) => setDraft({ ...draft, sizeSurchargeOn: e.target.checked })}/><span>큰 그림 추가금 받기</span></label>
+                {draft.sizeSurchargeOn && (
+                  <div className="tier-list">
+                    {draft.sizeSurcharges.map((band, index) => (
+                      <div className="tier-row" key={index}>
+                        <label><input type="number" min={1} max={100} value={band.size} onChange={(e) => {
+                          const next = [...draft.sizeSurcharges];
+                          next[index] = { ...band, size: Math.max(1, Math.min(100, Math.trunc(Number(e.target.value) || 1))) };
+                          setDraft({ ...draft, sizeSurcharges: next });
+                        }}/>×{band.size} 초과</label>
+                        <label>이름<input maxLength={20} value={band.label} placeholder="예: 대형" onChange={(e) => {
+                          const next = [...draft.sizeSurcharges];
+                          next[index] = { ...band, label: e.target.value };
+                          setDraft({ ...draft, sizeSurcharges: next });
+                        }}/></label>
+                        <label>장당<input type="number" min={0} max={10000000} step={100} value={band.perTile} onChange={(e) => {
+                          const next = [...draft.sizeSurcharges];
+                          next[index] = { ...band, perTile: Math.max(0, Math.min(10000000, Math.trunc(Number(e.target.value) || 0))) };
+                          setDraft({ ...draft, sizeSurcharges: next });
+                        }}/>원</label>
+                        <small>{surchargeThreshold(band).toLocaleString("ko-KR")}장 초과부터</small>
+                        <button type="button" onClick={() => setDraft({ ...draft, sizeSurcharges: draft.sizeSurcharges.filter((_, at) => at !== index) })}>빼기</button>
+                      </div>
+                    ))}
+                    {draft.sizeSurcharges.length === 0 && <p className="field-help">단계를 하나도 두지 않으면 추가금이 붙지 않습니다.</p>}
+                    {draft.sizeSurcharges.length < MAX_SURCHARGES && (
+                      <button type="button" className="plain-upload-button" onClick={() => setDraft({
+                        ...draft,
+                        sizeSurcharges: [...draft.sizeSurcharges, {
+                          size: (draft.sizeSurcharges.at(-1)?.size ?? 4) + 5,
+                          label: "",
+                          perTile: 0,
+                        }],
+                      })}>단계 추가</button>
+                    )}
+                    <p className="field-help">해당하는 단계 중 가장 큰 것 하나만 붙습니다. 겹치지 않습니다. 저장할 때 크기 순으로 정리되고, 이름이 비었거나 크기가 겹치는 줄은 빠집니다. 최대 {MAX_SURCHARGES}단계.</p>
+                  </div>
+                )}
+              </section>
+
+              <section className="settings-card">
+                <div className="settings-section-head"><span>06</span><div><h3>단골 칭호</h3><p>같은 손님이 여러 번 주문하면 후기 옆에 붙는 이름입니다. 후기에는 몇 번째 주문인지도 함께 표시됩니다.</p></div></div>
                 <div className="tier-list">
                   {draft.loyaltyTiers.map((tier, index) => (
                     <div className="tier-row" key={index}>
@@ -516,7 +564,7 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
               </section>
 
               <section className="settings-card">
-                <div className="settings-section-head"><span>06</span><div><h3>접수 슬롯</h3><p>한 번에 몇 건까지 받을지 정합니다. 가득 차면 주문 화면에서 접수 버튼이 잠깁니다.</p></div></div>
+                <div className="settings-section-head"><span>07</span><div><h3>접수 슬롯</h3><p>한 번에 몇 건까지 받을지 정합니다. 가득 차면 주문 화면에서 접수 버튼이 잠깁니다.</p></div></div>
                 <div className="field-grid">
                   <label>최대 슬롯<input type="number" min={0} max={999} value={draft.slotMax} onChange={(e) => setDraft({ ...draft, slotMax: Math.max(0, Math.min(999, Math.trunc(Number(e.target.value) || 0))) })}/><small>0으로 두면 제한 없이 계속 받습니다.</small></label>
                   <label>직접 채운 칸<input type="number" min={0} max={999} value={draft.slotManual} onChange={(e) => setDraft({ ...draft, slotManual: Math.max(0, Math.min(999, Math.trunc(Number(e.target.value) || 0))) })}/><small>사이트 밖에서 받은 작업 수. 주문 기록 화면에서도 바로 조절할 수 있습니다.</small></label>

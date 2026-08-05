@@ -5,6 +5,7 @@ import { currentUser } from "../../../db/discord-session";
 import { postOrderMessage } from "../../../db/discord-bot";
 import { getOrderShop } from "../../../db/shops";
 import { slotState } from "../../../db/slots";
+import { orderPrice, surchargeFor } from "../../../db/size-surcharge";
 import { deadlineLabel, isOfferedDeadline } from "../../../db/deadlines";
 import { verifyTurnstile } from "../../../db/turnstile";
 
@@ -122,7 +123,13 @@ export async function POST(request: Request) {
 
   const tiles = gridX * gridY;
   const multiplier = shop.pricing.deadlineMultipliers[String(deadline)] ?? 1;
-  const calculatedPrice = Math.round((tiles * shop.pricing.tilePrice * multiplier) / 100) * 100;
+  const surcharge = surchargeFor(tiles, shop.sizeSurcharges, shop.sizeSurchargeOn);
+  const { total: calculatedPrice } = orderPrice({
+    tileCount: tiles,
+    tilePrice: shop.pricing.tilePrice,
+    multiplier,
+    surcharge,
+  });
   const id = orderId();
   const previewObjectKey = `orders/${shop.id}/${id}/preview.png`;
   const originalObjectKey = originalFile ? `orders/${shop.id}/${id}/original.${originalFile.extension}` : null;
@@ -171,6 +178,11 @@ export async function POST(request: Request) {
         { name: "주문자", value: `${orderer.name} (<@${orderer.id}>)`, inline: true },
         { name: "마감", value: deadlineLabel(deadline), inline: true },
         { name: "예상 금액", value: `${calculatedPrice.toLocaleString("ko-KR")}원`, inline: true },
+        ...(surcharge ? [{
+          name: "크기",
+          value: `${surcharge.label} · 장당 +${surcharge.perTile.toLocaleString("ko-KR")}원`,
+          inline: true,
+        }] : []),
         { name: "규격", value: `${gridX}×${gridY} · ${tiles}장 · 장당 32×32`, inline: false },
         { name: "가장자리 처리", value: cropLabel, inline: false },
         { name: "원본 파일", value: originalFilename, inline: false },

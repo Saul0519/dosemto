@@ -5,6 +5,7 @@ import { countActiveOrders } from "../../../../db/orders";
 import { getPublicShop } from "../../../../db/shops";
 import { slotState } from "../../../../db/slots";
 import { tierFor } from "../../../../db/loyalty";
+import { surchargeThreshold } from "../../../../db/size-surcharge";
 import { countHiddenReviews, getShopRating, listShopReviews } from "../../../../db/reviews";
 import { SHOP_PAGE, SITE } from "../../../site-content";
 import AccountChip from "../../../account-chip";
@@ -90,6 +91,19 @@ export default async function ShopAboutPage({ params }: { params: Promise<{ slug
               <div><dt>캔버스</dt><dd>한 장 32 × 32</dd></div>
               <div><dt>장당</dt><dd><b>{won(shop.pricing.tilePrice)}</b> · 장수 × 마감 배수</dd></div>
               <div><dt>마감</dt><dd>기본 또는 당일 마감</dd></div>
+              {shop.sizeSurchargeOn && shop.sizeSurcharges.length > 0 && (
+                <div>
+                  <dt>큰 그림</dt>
+                  <dd>
+                    {shop.sizeSurcharges.map((band) => (
+                      <span className="surcharge-line" key={band.size}>
+                        {band.size}×{band.size}({surchargeThreshold(band)}장) 초과 · <b>{band.label}</b>
+                        {" "}장당 +{band.perTile.toLocaleString("ko-KR")}원
+                      </span>
+                    ))}
+                  </dd>
+                </div>
+              )}
               <div><dt>받는 것</dt><dd>32px 격자선이 들어간 도안 PNG</dd></div>
               <div><dt>연락</dt><dd>주문 시 남긴 디스코드 ID</dd></div>
               {slots.enabled && (
