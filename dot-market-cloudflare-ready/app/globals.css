@@ -1729,3 +1729,17 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 .surcharge-line { display: block; }
 .surcharge-line + .surcharge-line { margin-top: 3px; }
 .surcharge-line b { font-weight: 700; }
+
+/* Explaining a Discord limitation the owner cannot configure away. */
+.dm-reach {
+  display: grid;
+  gap: 10px;
+  padding: 20px 22px;
+  margin-bottom: 30px;
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  background: var(--paper-sunk);
+}
+.dm-reach h2 { margin: 0; font-family: var(--font-display); font-size: 19px; font-weight: 700; }
+.dm-reach p { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.75; }
+.dm-reach a { justify-self: start; }
