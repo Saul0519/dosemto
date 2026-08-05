@@ -1743,3 +1743,8 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 .dm-reach h2 { margin: 0; font-family: var(--font-display); font-size: 19px; font-weight: 700; }
 .dm-reach p { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.75; }
 .dm-reach a { justify-self: start; }
+
+/* A field that has been left with something wrong in it. */
+.apply-form label.has-problem input,
+.apply-form label.has-problem textarea { border-color: var(--danger-ink); }
+.apply-form .field-problem { color: var(--danger-ink); font-weight: 600; line-height: 1.5; }

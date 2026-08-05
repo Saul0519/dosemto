@@ -3,36 +3,50 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { readResult } from "../read-result";
+import { FieldKey, MAX_LENGTHS, checkField, firstProblem } from "../../db/application-fields";
+
+const EMPTY: Record<FieldKey, string> = {
+  mcNick: "", affiliation: "", job: "", email: "",
+  shopName: "", wantedSlug: "", intro: "", note: "",
+};
 
 export default function ApplyForm({ applicantName, applicantId }: {
   applicantName: string;
   applicantId: string;
 }) {
-  const [mcNick, setMcNick] = useState("");
-  const [affiliation, setAffiliation] = useState("");
-  const [job, setJob] = useState("");
-  const [email, setEmail] = useState("");
-  const [shopName, setShopName] = useState("");
-  const [wantedSlug, setWantedSlug] = useState("");
-  const [intro, setIntro] = useState("");
-  const [note, setNote] = useState("");
+  const [values, setValues] = useState(EMPTY);
+  // A field only complains once it has been left, so nothing is red on arrival.
+  const [touched, setTouched] = useState<Partial<Record<FieldKey, boolean>>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
 
+  const set = (key: FieldKey, value: string) => {
+    setValues((current) => ({ ...current, [key]: value }));
+    setError("");
+  };
+  const leave = (key: FieldKey) => setTouched((current) => ({ ...current, [key]: true }));
+  const problemFor = (key: FieldKey) => touched[key] ? checkField(key, values[key]) : null;
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!mcNick.trim()) { setError("도스에서 쓰는 닉네임을 적어주세요."); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError("관리자 로그인에 쓸 이메일을 정확히 적어주세요."); return;
+    const problem = firstProblem(values);
+    if (problem) {
+      // Everything shows its own message at once, rather than one per attempt.
+      setTouched({
+        mcNick: true, affiliation: true, job: true, email: true,
+        shopName: true, wantedSlug: true, intro: true, note: true,
+      });
+      setError(problem);
+      return;
     }
-    if (!shopName.trim()) { setError("가게 이름을 적어주세요."); return; }
+
     setBusy(true); setError("");
     try {
       const response = await fetch("/api/apply", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mcNick, affiliation, job, email, shopName, wantedSlug, intro, note }),
+        body: JSON.stringify(values),
       });
       await readResult(response, "신청을 보내지 못했습니다.");
       setSent(true);
@@ -53,8 +67,38 @@ export default function ApplyForm({ applicantName, applicantId }: {
     );
   }
 
+  const field = (key: FieldKey, label: string, extra?: { hint?: string; placeholder?: string; rows?: number; type?: string }) => {
+    const problem = problemFor(key);
+    return (
+      <label className={problem ? "has-problem" : ""}>
+        {label}
+        {extra?.rows ? (
+          <textarea
+            value={values[key]}
+            onChange={(event) => set(key, event.target.value)}
+            onBlur={() => leave(key)}
+            maxLength={MAX_LENGTHS[key]}
+            rows={extra.rows}
+            placeholder={extra.placeholder}
+          />
+        ) : (
+          <input
+            type={extra?.type ?? "text"}
+            value={values[key]}
+            onChange={(event) => set(key, event.target.value)}
+            onBlur={() => leave(key)}
+            maxLength={MAX_LENGTHS[key]}
+            placeholder={extra?.placeholder}
+            list={key === "affiliation" ? "apply-affiliations" : undefined}
+          />
+        )}
+        {problem ? <small className="field-problem">{problem}</small> : extra?.hint ? <small>{extra.hint}</small> : null}
+      </label>
+    );
+  };
+
   return (
-    <form className="apply-form" onSubmit={submit}>
+    <form className="apply-form" onSubmit={submit} noValidate>
       <fieldset className="apply-group">
         <legend>누구신가요</legend>
 
@@ -65,106 +109,48 @@ export default function ApplyForm({ applicantName, applicantId }: {
           <small>로그인한 계정이 그대로 들어갑니다. 답도 이 계정으로 드립니다.</small>
         </div>
 
-        <label>
-          도스 닉네임
-          <input
-            value={mcNick}
-            onChange={(event) => setMcNick(event.target.value)}
-            maxLength={40}
-            placeholder="실제 도스에서 사용 중인 닉네임"
-            required
-          />
-        </label>
+        {field("mcNick", "도스 닉네임", {
+          placeholder: "실제 도스에서 사용 중인 닉네임",
+          hint: "영문·숫자·밑줄(_)만. 게임에서 찾을 수 있어야 합니다.",
+        })}
 
         <div className="apply-pair">
-          <label>
-            소속 <small>선택</small>
-            <input
-              value={affiliation}
-              onChange={(event) => setAffiliation(event.target.value)}
-              maxLength={60}
-              placeholder="예: 예술협회, 도화숲"
-              list="apply-affiliations"
-            />
-            {/* Suggestions, not a fixed list: someone from anywhere else can
-                still type their own. */}
-            <datalist id="apply-affiliations">
-              <option value="예술협회"/>
-              <option value="도화숲"/>
-            </datalist>
-          </label>
-          <label>
-            직업 <small>선택</small>
-            <input
-              value={job}
-              onChange={(event) => setJob(event.target.value)}
-              maxLength={60}
-              placeholder="예: 화가"
-            />
-          </label>
+          {field("affiliation", "소속", { placeholder: "예: 예술협회, 도화숲" })}
+          {field("job", "직업", { placeholder: "예: 화가" })}
         </div>
+        {/* Suggestions, not a fixed list: someone from anywhere else can
+            still type their own. */}
+        <datalist id="apply-affiliations">
+          <option value="예술협회"/>
+          <option value="도화숲"/>
+        </datalist>
 
-        <label>
-          이메일
-          <input
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            maxLength={120}
-            placeholder="me@example.com"
-            required
-          />
-          <small>샵이 열리면 이 주소로 관리자 화면에 로그인하게 됩니다. 실제로 받을 수 있는 주소로 적어주세요.</small>
-        </label>
+        {field("email", "이메일", {
+          type: "email",
+          placeholder: "me@example.com",
+          hint: "샵이 열리면 이 주소로 관리자 화면에 로그인합니다. 실제로 받을 수 있는 주소로 적어주세요.",
+        })}
       </fieldset>
 
       <fieldset className="apply-group">
         <legend>어떤 가게인가요</legend>
 
-      <label>
-        가게 이름
-        <input
-          value={shopName}
-          onChange={(event) => setShopName(event.target.value)}
-          maxLength={60}
-          placeholder="예: 웨스트의 그림 공방"
-          required
-        />
-      </label>
+        {field("shopName", "가게 이름", { placeholder: "예: 웨스트의 그림 공방" })}
 
-      <label>
-        원하는 주소 <small>선택</small>
-        <input
-          value={wantedSlug}
-          onChange={(event) => setWantedSlug(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-          maxLength={50}
-          placeholder="west"
-        />
-        <small>영어 소문자·숫자·하이픈만. 비워두면 운영자가 정합니다. → /shop/{wantedSlug || "west"}</small>
-      </label>
+        {field("wantedSlug", "원하는 주소", {
+          placeholder: "west",
+          hint: `영문 소문자·숫자·하이픈만. → /shop/${values.wantedSlug || "west"}`,
+        })}
 
-      <label>
-        어떤 그림을 그리시나요 <small>선택</small>
-        <textarea
-          value={intro}
-          onChange={(event) => setIntro(event.target.value)}
-          maxLength={500}
-          rows={4}
-          placeholder="주로 그리는 스타일, 보여드릴 수 있는 작업물 같은 걸 적어주세요."
-        />
-      </label>
+        {field("intro", "어떤 그림을 그리시나요", {
+          rows: 4,
+          placeholder: "주로 그리는 스타일, 보여드릴 수 있는 작업물 같은 걸 적어주세요.",
+        })}
 
-      <label>
-        하고 싶은 말 <small>선택</small>
-        <textarea
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          maxLength={500}
-          rows={3}
-          placeholder="그 밖에 전하고 싶은 내용이 있으면 적어주세요."
-        />
-      </label>
-
+        {field("note", "하고 싶은 말", {
+          rows: 3,
+          placeholder: "그 밖에 전하고 싶은 내용이 있으면 적어주세요.",
+        })}
       </fieldset>
 
       <button className="btn btn-solid" disabled={busy}>

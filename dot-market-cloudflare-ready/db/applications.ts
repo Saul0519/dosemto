@@ -6,6 +6,8 @@
  * always has someone to reply to and a name nobody could have made up.
  */
 
+import { FieldKey, firstProblem } from "./application-fields";
+
 export type ShopApplication = {
   id: string;
   /** The name they actually go by on 도스온라인, so the owner can find them. */
@@ -124,22 +126,20 @@ export async function submitApplication(input: {
 }): Promise<Outcome> {
   await ensureTable();
 
-  const shopName = input.shopName.trim().slice(0, 60);
-  if (!shopName) return { ok: false, error: "가게 이름을 적어주세요.", status: 400 };
-
-  const mcNick = input.mcNick.trim().slice(0, 40);
-  if (!mcNick) return { ok: false, error: "도스에서 쓰는 닉네임을 적어주세요.", status: 400 };
-
-  // Not a full address check — just enough to catch a typo. This is the address
-  // the owner would allow into the admin screen, so it has to be a real inbox.
-  const email = input.email.trim().slice(0, 120);
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { ok: false, error: "관리자 로그인에 쓸 이메일을 정확히 적어주세요.", status: 400 };
-  }
-
-  // Lowercased and stripped to the shape a slug has to take, so the owner can
-  // use it as-is instead of correcting it by hand.
-  const wantedSlug = input.wantedSlug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 50);
+  // Same rules the form shows while typing, so a message someone read is the
+  // one that actually decides. Every field is required.
+  const values: Record<FieldKey, string> = {
+    mcNick: input.mcNick ?? "",
+    affiliation: input.affiliation ?? "",
+    job: input.job ?? "",
+    email: input.email ?? "",
+    shopName: input.shopName ?? "",
+    wantedSlug: input.wantedSlug ?? "",
+    intro: input.intro ?? "",
+    note: input.note ?? "",
+  };
+  const problem = firstProblem(values);
+  if (problem) return { ok: false, error: problem, status: 400 };
 
   // One open request per person. Sending a second changes nothing for the
   // owner and just buries the first.
@@ -157,14 +157,14 @@ export async function submitApplication(input: {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).bind(
     crypto.randomUUID(),
-    mcNick,
-    input.affiliation.trim().slice(0, 60),
-    input.job.trim().slice(0, 60),
-    email,
-    shopName,
-    wantedSlug,
-    input.intro.trim().slice(0, 500),
-    input.note.trim().slice(0, 500),
+    values.mcNick.trim(),
+    values.affiliation.trim(),
+    values.job.trim(),
+    values.email.trim(),
+    values.shopName.trim(),
+    values.wantedSlug.trim().toLowerCase(),
+    values.intro.trim(),
+    values.note.trim(),
     input.applicantId,
     input.applicantName.slice(0, 80),
   ).run();
