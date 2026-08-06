@@ -18,6 +18,11 @@ export type StoreItem = {
   description: string;
   /** Everything worth saying, shown on the product's own page. */
   detail: string;
+  /**
+   * The terms a buyer is shown once they have asked for it, in Markdown.
+   * Buyers only — it never travels with the public listing.
+   */
+  licence: string;
   /** Small line above the name — "기간제", "한정" and so on. */
   tagline: string;
   plans: StorePlan[];
@@ -55,7 +60,7 @@ export type StorePurchase = {
 
 type ItemRow = {
   id: string; name: string; description: string; detail: string | null; tagline: string;
-  plans: string | null; active: number; position: number;
+  licence: string | null; plans: string | null; active: number; position: number;
 };
 
 type ImageRow = { id: string; item_id: string; filename: string };
@@ -130,6 +135,9 @@ async function migrate() {
   await db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS store_purchases_order_no_idx ON store_purchases (order_no)")
     .run().catch(() => undefined);
 
+  // Added when a purchase started coming with terms attached.
+  await db.prepare(`ALTER TABLE store_items ADD COLUMN licence TEXT NOT NULL DEFAULT ''`).run().catch(() => undefined);
+
   // Added when products grew a page of their own.
   await db.prepare(`ALTER TABLE store_items ADD COLUMN detail TEXT NOT NULL DEFAULT ''`).run().catch(() => undefined);
 }
@@ -140,6 +148,7 @@ function toItem(row: ItemRow, images: StoreImage[] = []): StoreItem {
     name: row.name,
     description: row.description,
     detail: row.detail ?? "",
+    licence: row.licence ?? "",
     tagline: row.tagline,
     plans: parsePlans(row.plans),
     images,
@@ -154,7 +163,7 @@ const PURCHASE_COLUMNS = `p.id, p.order_no, p.item_id, p.item_name, p.plan_label
   i.active AS item_active, i.plans AS item_plans`;
 const PURCHASE_FROM = "store_purchases p LEFT JOIN store_items i ON i.id = p.item_id";
 
-const ITEM_COLUMNS = "id, name, description, detail, tagline, plans, active, position";
+const ITEM_COLUMNS = "id, name, description, detail, licence, tagline, plans, active, position";
 
 /** One query for every item's pictures rather than one query each. */
 async function listImagesByItem(rows: ItemRow[]) {
@@ -174,6 +183,11 @@ async function listImagesByItem(rows: ItemRow[]) {
   return grouped;
 }
 
+/** Strips the buyer-only fields off a product bound for a public page. */
+export function withoutLicence(item: StoreItem): StoreItem {
+  return { ...item, licence: "" };
+}
+
 /** What the store page shows: on sale, in the owner's order. */
 export async function listActiveItems(): Promise<StoreItem[]> {
   await ensureTables();
@@ -184,7 +198,8 @@ export async function listActiveItems(): Promise<StoreItem[]> {
   const images = await listImagesByItem(rows.results);
   // An item with no priced plan has nothing to buy, so it does not belong here.
   return rows.results.map((row) => toItem(row, images.get(row.id) ?? []))
-    .filter((item) => item.plans.length > 0);
+    .filter((item) => item.plans.length > 0)
+    .map(withoutLicence);
 }
 
 /** Everything, including what is switched off. Owner view. */
@@ -223,6 +238,7 @@ export async function updateItem(id: string, input: {
   name: string;
   description: string;
   detail: string;
+  licence: string;
   tagline: string;
   plans: StorePlan[];
   active: boolean;
@@ -230,11 +246,12 @@ export async function updateItem(id: string, input: {
 }) {
   await ensureTables();
   const db = await getD1();
-  await db.prepare(`UPDATE store_items SET name = ?, description = ?, detail = ?, tagline = ?,
-    plans = ?, active = ?, position = ? WHERE id = ?`).bind(
+  await db.prepare(`UPDATE store_items SET name = ?, description = ?, detail = ?, licence = ?,
+    tagline = ?, plans = ?, active = ?, position = ? WHERE id = ?`).bind(
     input.name.trim().slice(0, 60) || "새 상품",
     input.description.trim().slice(0, 600),
     input.detail.trim().slice(0, 4000),
+    input.licence.trim().slice(0, 20000),
     input.tagline.trim().slice(0, 30),
     serialisePlans(input.plans),
     input.active ? 1 : 0,

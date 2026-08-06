@@ -11,6 +11,47 @@ import {
   discountPercent, isOnSale, readableOn, won,
 } from "../../db/store-plans";
 
+/**
+ * A starting point for the terms, so the box is not blank. Every word of it is
+ * the owner's to change — it is only ever inserted when they ask.
+ */
+const LICENCE_TEMPLATE = `## 저작권 안내
+
+이 상품은 제작자의 저작물입니다. **저작권은 만든 때부터 자동으로 생깁니다.**
+등록이나 ⓒ 표시 같은 절차가 필요하지 않습니다. (저작권법 제10조 제2항)
+
+구매하시면 **본인 계정으로 쓸 권리**를 받는 것이고, 파일에 대한 권리를 사는 것이 아닙니다.
+
+**해도 되는 것**
+- 본인 계정에서 쓰기
+- 받은 파일을 그대로 보관하기
+
+**하면 안 되는 것**
+- 파일이나 라이선스 코드를 남에게 주거나 올리는 것
+- 코드나 그 일부를 가져다 다른 프로그램에 쓰는 것
+- 파일을 고치거나 고친 것을 배포하는 것
+- 되팔거나 다른 서비스에 끼워 파는 것
+
+## 어기실 경우
+
+저작재산권을 복제·배포·2차적저작물 작성 등의 방법으로 침해하면
+**5년 이하의 징역 또는 5천만원 이하의 벌금**에 처해질 수 있고, 두 형을 함께 부과할 수도 있습니다.
+(저작권법 제136조 제1항)
+
+라이선스 검사를 없애려고 역분석하는 것은 호환 목적이 아니므로 허용 범위에 들어가지 않습니다.
+(저작권법 제101조의4)
+
+## 기록
+
+라이선스 서버에 **발급·사용·계정 연결 기록이 남습니다.**
+코드는 처음 쓴 계정에 묶이고, 그 뒤 접속도 계정별로 쌓입니다.
+코드를 남에게 주면 그 사람이 시도한 순간 계정과 함께 기록에 남습니다.
+
+## 끝으로
+
+겁주려고 쓴 글이 아니라, 모르고 하시는 분이 없도록 미리 적어두는 것입니다.
+궁금한 점이나 계정을 바꾸셔야 하는 경우는 언제든 편하게 말씀해주세요.`;
+
 export default function StorePanel({
   initialItems, initialPurchases, initialReviews, initialChannelId, initialGuildId,
   say, busy, setBusy,
@@ -316,6 +357,28 @@ export default function StorePanel({
               <label className="wide">
                 <span>자세한 설명 <small>상품을 눌러 들어갔을 때. 줄바꿈 그대로 살아납니다</small></span>
                 <textarea value={item.detail} maxLength={4000} rows={7} onChange={(event) => patch(item.id, { detail: event.target.value })}/>
+              </label>
+              <label className="wide">
+                <span>
+                  이용 안내 <small>구매한 사람에게만 보입니다. 마크다운(## 제목, **굵게**, - 목록)</small>
+                </span>
+                <textarea
+                  value={item.licence}
+                  maxLength={20000}
+                  rows={10}
+                  placeholder="구매 직후와 내 주문에서 볼 수 있는 안내문입니다. 저작권, 해도 되는 것과 안 되는 것 같은 내용을 적으세요."
+                  onChange={(event) => patch(item.id, { licence: event.target.value })}
+                />
+                <span className="licence-tools">
+                  <small>{item.licence.length.toLocaleString("ko-KR")}/20,000자</small>
+                  {item.licence.trim().length === 0 && (
+                    <button
+                      type="button"
+                      className="plain-upload-button"
+                      onClick={() => patch(item.id, { licence: LICENCE_TEMPLATE })}
+                    >기본 문구 넣기</button>
+                  )}
+                </span>
               </label>
             </div>
 

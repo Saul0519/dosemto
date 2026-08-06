@@ -1,7 +1,8 @@
 import { currentUser } from "../../../../db/discord-session";
 import {
-  StorePurchase, getStoreChannelId, getStoreGuildId, recordPurchase, setPurchaseRoles,
+  StorePurchase, getItem, getStoreChannelId, getStoreGuildId, recordPurchase, setPurchaseRoles,
 } from "../../../../db/store";
+import { renderMarkdown } from "../../../../db/markdown";
 import { rolesForMember } from "../../../../db/discord-roles";
 import { won } from "../../../../db/store-plans";
 import { botToken } from "../../../../db/discord-bot";
@@ -50,7 +51,15 @@ export async function POST(request: Request) {
   // request is in the control panel either way.
   await notify(result.purchase).catch(() => undefined);
 
-  return Response.json({ ok: true });
+  const item = await getItem(result.purchase.itemId).catch(() => null);
+  const licence = item?.licence?.trim() ?? "";
+  return Response.json({
+    ok: true,
+    orderNo: result.purchase.orderNo,
+    // Rendered here so the browser is handed finished markup rather than a
+    // renderer, and the notice reads the same wherever it is shown.
+    licence: licence ? renderMarkdown(licence) : "",
+  });
 }
 
 async function notify(purchase: StorePurchase) {

@@ -162,6 +162,7 @@ export default async function MyOrdersPage() {
                       <div className="my-order-actions">
                         {/* The purchase record outlives the product, so both links
                             only make sense while the product is still there. */}
+                        <Link href={`/store/licence/${purchase.orderNo}`}>이용 안내</Link>
                         {purchase.itemExists ? (
                           <>
                             <Link href={`/store/${purchase.itemId}`}>상품 보기</Link>

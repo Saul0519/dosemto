@@ -28,6 +28,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     name: String(body.name ?? ""),
     description: String(body.description ?? ""),
     detail: String(body.detail ?? ""),
+    licence: String(body.licence ?? ""),
     tagline: String(body.tagline ?? ""),
     plans: Array.isArray(body.plans) ? body.plans as StorePlan[] : [],
     active: body.active === true,

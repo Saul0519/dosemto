@@ -2352,3 +2352,124 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 }
 .sortable-add:hover { border-color: var(--ink-3); color: var(--ink-2); }
 .sortable-add input { display: none; }
+
+/* ── 이용 안내 ───────────────────────────────────────────────────────────
+   Deliberately heavier than the rest of the site: ruled bands, a serif face,
+   the buyer's own name and order number printed on it. Someone should feel
+   they are holding a document made out to them, not reading a footer. */
+
+.deed {
+  width: min(100%, 720px);
+  overflow: hidden;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: var(--paper);
+  box-shadow: 0 18px 44px rgba(22, 21, 26, .14);
+}
+
+.deed-band {
+  padding: 26px 30px 22px;
+  border-bottom: 3px double var(--ink);
+  background: var(--ink);
+  color: var(--ink-invert);
+}
+.deed-kind {
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .22em;
+  opacity: .72;
+}
+.deed-band h1, .deed-band h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+}
+
+.deed-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 2px 26px;
+  margin: 0;
+  padding: 18px 30px;
+  border-bottom: 1px solid var(--line-2);
+  background: var(--paper-sunk);
+  font-size: 12px;
+}
+.deed-meta div { display: flex; gap: 10px; padding: 3px 0; }
+.deed-meta dt { min-width: 66px; color: var(--ink-3); }
+.deed-meta dd { margin: 0; font-weight: 600; }
+.deed-meta code { font-family: var(--font-mono); font-size: 12px; }
+
+.deed-body { padding: 30px; color: var(--ink-2); font-size: 14px; line-height: 1.95; }
+/* The renderer shifts headings down one so the page keeps a single h1, which
+   puts the writer's top level at h2 or h3 depending on how they wrote it.
+   Both read as the section rule. */
+.deed-body h2, .deed-body h3 {
+  margin: 34px 0 14px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--ink);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+}
+.deed-body h2:first-child, .deed-body h3:first-child { margin-top: 0; }
+.deed-body h4, .deed-body h5 { margin: 26px 0 10px; color: var(--ink); font-size: 15px; font-weight: 700; }
+.deed-body p { margin: 0 0 14px; }
+.deed-body strong { color: var(--ink); font-weight: 700; }
+.deed-body ul { margin: 0 0 16px; padding-left: 4px; list-style: none; display: grid; gap: 7px; }
+.deed-body li { display: flex; gap: 10px; }
+.deed-body li::before { content: "—"; flex: none; color: var(--ink-3); }
+.deed-body hr { margin: 24px 0; border: 0; border-top: 1px solid var(--line-2); }
+.deed-body code {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--paper-sunk);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.deed-body a { color: var(--ink); }
+
+.deed-empty { margin: 0; padding: 34px 30px; color: var(--ink-3); font-size: 13px; }
+
+/* The line that makes it personal: their name, their number. */
+.deed-seal {
+  margin: 0;
+  padding: 18px 30px;
+  border-top: 1px solid var(--ink);
+  border-bottom: 1px solid var(--line-2);
+  background: var(--danger-soft);
+  color: var(--danger-ink);
+  font-size: 12.5px;
+  line-height: 1.75;
+}
+.deed-seal b { font-weight: 700; }
+.deed-seal code { font-family: var(--font-mono); }
+
+.deed-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 18px 30px;
+  background: var(--paper-sunk);
+}
+.deed-foot > span { margin-left: auto; color: var(--ink-3); font-family: var(--font-mono); font-size: 11px; }
+
+/* Shown over the product page the moment a request goes through. */
+.deed-modal { max-height: 88vh; overflow-y: auto; }
+.deed-modal .deed-band { position: sticky; top: 0; z-index: 1; }
+.deed-modal .deed-foot { position: sticky; bottom: 0; border-top: 1px solid var(--line-2); }
+
+.licence-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.licence-tools small { color: var(--ink-3); font-size: 11px; font-weight: 400; }
+
+@media (max-width: 600px) {
+  .deed-band, .deed-meta, .deed-body, .deed-seal, .deed-foot { padding-left: 20px; padding-right: 20px; }
+  .deed-band h1, .deed-band h3 { font-size: 22px; }
+}
+.action-shell-wide { max-width: 780px; }

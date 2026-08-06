@@ -18,6 +18,9 @@ export default function BuyPanel({ item, signedIn, buyerName }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState<StorePlan | null>(null);
+  // Comes back with the receipt, already rendered by the server.
+  const [receipt, setReceipt] = useState<{ orderNo: string; licence: string } | null>(null);
+  const [read, setRead] = useState(false);
 
   const buy = async () => {
     if (!chosen) return;
@@ -28,9 +31,11 @@ export default function BuyPanel({ item, signedIn, buyerName }: {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ itemId: item.id, planLabel: chosen.label, mcNick, note }),
       });
-      await readResult(response, "구매 요청을 보내지 못했습니다.");
+      const result = await readResult<{ orderNo?: string; licence?: string }>(
+        response, "구매 요청을 보내지 못했습니다.");
+      setReceipt({ orderNo: result.orderNo ?? "", licence: result.licence ?? "" });
+      setRead(false);
       setDone(chosen);
-      setChosen(null);
       setNote("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "구매 요청을 보내지 못했습니다.");
@@ -38,6 +43,36 @@ export default function BuyPanel({ item, signedIn, buyerName }: {
       setBusy(false);
     }
   };
+
+  // The terms come up before anything else and stay up until they are
+  // acknowledged. Somebody who has just paid is the one moment they will read.
+  if (done && receipt?.licence && !read) {
+    return (
+      <div className="store-modal" role="dialog" aria-modal="true" aria-label="이용 안내">
+        <div className="deed deed-modal">
+          <div className="deed-band">
+            <p className="deed-kind">이용 안내 · TERMS OF USE</p>
+            <h3>{item.name}</h3>
+          </div>
+          <dl className="deed-meta">
+            <div><dt>주문번호</dt><dd><code>{receipt.orderNo}</code></dd></div>
+            <div><dt>발급 대상</dt><dd>{buyerName}</dd></div>
+          </dl>
+          <div className="deed-body" dangerouslySetInnerHTML={{ __html: receipt.licence }}/>
+          <p className="deed-seal">
+            이 안내는 <b>{buyerName}</b> 님의 주문 <code>{receipt.orderNo}</code>에 대해
+            발급되었습니다. 발급 기록은 서버에 남습니다.
+          </p>
+          <div className="deed-foot">
+            <button type="button" className="btn btn-solid" onClick={() => setRead(true)}>
+              읽었습니다
+            </button>
+            <span>나중에 다시 보려면 내 주문 → 이용 안내</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (done) {
     return (
@@ -50,8 +85,13 @@ export default function BuyPanel({ item, signedIn, buyerName }: {
         </p>
         <p className="store-done-where">
           주문번호와 진행 상황은 <Link href="/me">내 주문</Link>에서 볼 수 있습니다.
+          {receipt?.licence && receipt.orderNo && (
+            <> 이용 안내는 <Link href={`/store/licence/${receipt.orderNo}`}>여기</Link>에서 다시 볼 수 있습니다.</>
+          )}
         </p>
-        <button type="button" className="btn btn-line" onClick={() => setDone(null)}>다른 기간도 보기</button>
+        <button type="button" className="btn btn-line" onClick={() => { setDone(null); setChosen(null); }}>
+          다른 기간도 보기
+        </button>
       </div>
     );
   }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getItem } from "../../../db/store";
+import { getItem, withoutLicence } from "../../../db/store";
 import { getItemRating, listItemReviews } from "../../../db/store-reviews";
 import { getUser } from "../../session";
 import { SITE } from "../../site-content";
@@ -18,7 +18,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function StoreItemPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const item = await getItem(id).catch(() => null);
+  // Stripped here: everything on this page is serialised to the browser, and
+  // the terms are for people who have actually bought the thing.
+  const item = await getItem(id).then((found) => found && withoutLicence(found)).catch(() => null);
   // A switched-off product is not visible just because someone kept the link.
   if (!item || !item.active || item.plans.length === 0) notFound();
 
