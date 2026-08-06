@@ -2143,9 +2143,6 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 .store-shot-add:hover { border-color: var(--ink-3); color: var(--ink-2); }
 .store-shot-add input { display: none; }
 
-.plan-row { flex-wrap: wrap; }
-.sale-colour { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex-basis: 100%; }
-.sale-colour .field-help { margin: 0; }
 .sale-colour-picks { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .sale-colour-picks button {
   width: 24px;
@@ -2410,4 +2407,115 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
   background: var(--paper);
   font-size: 11px;
   font-weight: 700;
+}
+
+/* ── 상점 상품 편집기 ────────────────────────────────────────────────────
+   Its own layout rules rather than classes borrowed from the shop pages,
+   which only styled them inside their own containers. */
+
+.store-admin-item { max-width: 760px; }
+
+.item-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.item-fields .wide { grid-column: 1 / -1; }
+.item-fields label { display: grid; gap: 6px; }
+.item-fields label > span { font-size: 12px; font-weight: 700; }
+.item-fields label > span small { color: var(--ink-3); font-size: 11px; font-weight: 400; }
+.item-fields input, .item-fields textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 9px;
+  background: var(--paper);
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+.item-fields textarea { min-height: 62px; line-height: 1.7; }
+.item-fields input:focus, .item-fields textarea:focus { border-color: var(--ink); outline: none; }
+
+.plan-list { display: grid; gap: 10px; }
+.plan-head { margin: 0; font-size: 12px; font-weight: 700; }
+
+.plan-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--paper);
+}
+.plan-row label { display: grid; gap: 5px; }
+.plan-row label > span { color: var(--ink-3); font-size: 11px; font-weight: 700; }
+.plan-row input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--paper);
+  font: inherit;
+  font-size: 13px;
+}
+.plan-row input:focus { border-color: var(--ink); outline: none; }
+.plan-money em {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-style: normal;
+  color: var(--ink-3);
+}
+
+.plan-colour {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+}
+.plan-colour > span { min-width: 150px; }
+.plan-colour i { color: var(--ink-3); font-size: 11px; font-style: normal; }
+
+.plan-drop {
+  margin-left: auto;
+  padding: 8px 13px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--danger-ink);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.plan-drop:hover { border-color: var(--danger-ink); }
+
+.plan-add {
+  padding: 11px;
+  border: 1px dashed var(--line-2);
+  border-radius: 10px;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.plan-add:hover { border-color: var(--ink-3); color: var(--ink); }
+
+.item-order { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; }
+.item-order input {
+  width: 74px;
+  padding: 7px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--paper);
+  font: inherit;
+  font-size: 13px;
+}
+
+@media (max-width: 700px) {
+  .item-fields { grid-template-columns: 1fr; }
+  .item-fields .wide { grid-column: auto; }
+  .plan-row { grid-template-columns: 1fr 1fr; }
 }

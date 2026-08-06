@@ -288,20 +288,22 @@ export default function StorePanel({
 
         {items.map((item) => (
           <article className="store-admin-item" key={item.id}>
-            <div className="field-grid">
-              <label>상품 이름
+            <div className="item-fields">
+              <label>
+                <span>상품 이름</span>
                 <input value={item.name} maxLength={60} onChange={(event) => patch(item.id, { name: event.target.value })}/>
               </label>
-              <label>작은 머리말
+              <label>
+                <span>작은 머리말</span>
                 <input value={item.tagline} maxLength={30} placeholder="예: 기간제" onChange={(event) => patch(item.id, { tagline: event.target.value })}/>
               </label>
-              <label className="wide">한 줄 소개
+              <label className="wide">
+                <span>한 줄 소개 <small>목록 카드에 나옵니다</small></span>
                 <textarea value={item.description} maxLength={600} rows={2} onChange={(event) => patch(item.id, { description: event.target.value })}/>
-                <small>목록 카드에 나옵니다.</small>
               </label>
-              <label className="wide">자세한 설명
-                <textarea value={item.detail} maxLength={4000} rows={6} onChange={(event) => patch(item.id, { detail: event.target.value })}/>
-                <small>상품을 눌러 들어갔을 때 나옵니다. 줄바꿈은 그대로 살아납니다.</small>
+              <label className="wide">
+                <span>자세한 설명 <small>상품을 눌러 들어갔을 때. 줄바꿈 그대로 살아납니다</small></span>
+                <textarea value={item.detail} maxLength={4000} rows={7} onChange={(event) => patch(item.id, { detail: event.target.value })}/>
               </label>
             </div>
 
@@ -323,25 +325,44 @@ export default function StorePanel({
               <small className="field-help">첫 번째 사진이 목록 카드에 나옵니다. 최대 {MAX_ITEM_IMAGES}장.</small>
             </div>
 
-            <div className="tier-list">
+            <div className="plan-list">
+              <p className="plan-head">기간과 가격</p>
               {item.plans.map((plan, index) => (
-                <div className="tier-row plan-row" key={index}>
-                  <label>기간<input value={plan.label} maxLength={20} placeholder="1일" onChange={(event) => setPlan(item, index, { label: event.target.value })}/></label>
-                  <label>정가<input type="number" min={0} step={10000} value={plan.price} onChange={(event) => setPlan(item, index, { price: Math.max(0, Math.trunc(Number(event.target.value) || 0)) })}/>원</label>
-                  <label>할인가<input type="number" min={0} step={10000} value={plan.salePrice} onChange={(event) => setPlan(item, index, { salePrice: Math.max(0, Math.trunc(Number(event.target.value) || 0)) })}/>원</label>
-                  <button type="button" onClick={() => patch(item.id, { plans: item.plans.filter((_, at) => at !== index) })}>빼기</button>
+                <div className="plan-row" key={index}>
+                  <label className="plan-when">
+                    <span>기간</span>
+                    <input value={plan.label} maxLength={20} placeholder="1일" onChange={(event) => setPlan(item, index, { label: event.target.value })}/>
+                  </label>
+                  <label className="plan-money">
+                    <span>정가</span>
+                    <input type="number" min={0} step={10000} value={plan.price} onChange={(event) => setPlan(item, index, { price: Math.max(0, Math.trunc(Number(event.target.value) || 0)) })}/>
+                    {/* Six zeros in a number box are hard to read back, so the
+                        grouped figure is printed under it. */}
+                    <em>{won(plan.price)}</em>
+                  </label>
+                  <label className="plan-money">
+                    <span>할인가</span>
+                    <input type="number" min={0} step={10000} value={plan.salePrice} onChange={(event) => setPlan(item, index, { salePrice: Math.max(0, Math.trunc(Number(event.target.value) || 0)) })}/>
+                    <em>{plan.salePrice > 0 ? won(plan.salePrice) : "할인 없음"}</em>
+                  </label>
 
                   {/* Each band gets its own colour, so a small saving and a big
-                      one do not have to shout in the same voice. */}
-                  <div className="sale-colour">
-                    {isOnSale(plan) ? (
-                      <b
-                        className="store-sale-badge"
-                        style={{ "--sale": plan.colour, "--on-sale": readableOn(plan.colour) } as CSSProperties}
-                      >
-                        {discountPercent(plan)}% 할인
-                      </b>
-                    ) : <small className="field-help">할인가를 넣으면 여기에 배지가 보입니다</small>}
+                      one do not have to shout in the same voice. Removing the
+                      band sits at the far end of the same line, away from the
+                      fields it would undo. */}
+                  <div className="plan-colour">
+                    <span>
+                      {isOnSale(plan)
+                        ? (
+                          <b
+                            className="store-sale-badge"
+                            style={{ "--sale": plan.colour, "--on-sale": readableOn(plan.colour) } as CSSProperties}
+                          >
+                            {discountPercent(plan)}% 할인
+                          </b>
+                        )
+                        : <i>할인가를 넣으면 배지가 보입니다</i>}
+                    </span>
                     <div className="sale-colour-picks">
                       {SALE_COLOURS.map((colour) => (
                         <button
@@ -362,19 +383,26 @@ export default function StorePanel({
                         aria-label="직접 고르기"
                       />
                     </div>
+
+                    <button
+                      type="button"
+                      className="plan-drop"
+                      onClick={() => patch(item.id, { plans: item.plans.filter((_, at) => at !== index) })}
+                      aria-label={`${plan.label || `${index + 1}번째 기간`} 빼기`}
+                    >빼기</button>
                   </div>
                 </div>
               ))}
+              {item.plans.length === 0 && <p className="field-help">기간이 없으면 상점에 나오지 않습니다.</p>}
               {item.plans.length < MAX_PLANS && (
                 <button
                   type="button"
-                  className="plain-upload-button"
+                  className="plan-add"
                   onClick={() => patch(item.id, {
                     plans: [...item.plans, { label: "", price: 0, salePrice: 0, colour: DEFAULT_SALE_COLOUR }],
                   })}
-                >기간 추가</button>
+                >＋ 기간 추가</button>
               )}
-              {item.plans.length === 0 && <p className="field-help">기간이 없으면 상점에 나오지 않습니다.</p>}
             </div>
 
             <div className="store-admin-foot">
@@ -382,7 +410,8 @@ export default function StorePanel({
                 <input type="checkbox" checked={item.active} onChange={(event) => patch(item.id, { active: event.target.checked })}/>
                 <span>판매 중</span>
               </label>
-              <label className="rank-row">표시 순서
+              <label className="item-order">
+                <span>표시 순서</span>
                 <input type="number" min={0} max={999} value={item.position} onChange={(event) => patch(item.id, { position: Math.max(0, Math.min(999, Math.trunc(Number(event.target.value) || 0))) })}/>
               </label>
               <div className="application-actions">
