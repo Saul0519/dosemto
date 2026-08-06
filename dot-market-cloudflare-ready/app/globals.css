@@ -939,8 +939,11 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
   .contact-fields { padding-top: 18px; }
 }
 @media (max-width: 780px) {
-  .market-header > .wrap { gap: 14px; }
+  /* The header keeps the brand, the buyer's notice link and the account chip
+     on one line; anything more than that has to be allowed to wrap. */
+  .market-header > .wrap { gap: 10px 14px; flex-wrap: wrap; }
   .market-nav, .topbar nav { display: none; }
+  .licence-link, .market-nav + .licence-link { margin-left: auto; }
   .market-facts > .wrap { grid-template-columns: repeat(2, 1fr); }
   .market-facts .wrap > div { padding: 18px 0 18px 18px; }
   .market-facts .wrap > div:nth-child(odd) { padding-left: 0; border-left: 0; }
@@ -2473,3 +2476,46 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
   .deed-band h1, .deed-band h3 { font-size: 22px; }
 }
 .action-shell-wide { max-width: 780px; }
+
+/*
+ * Only a buyer ever sees this, so it sits apart from the menu — and outside it,
+ * because the menu is hidden on a narrow screen and this must not be.
+ */
+.licence-link {
+  flex: none;
+  margin-left: 14px;
+  padding: 5px 12px;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.market-nav + .licence-link { margin-left: 20px; }
+.licence-link:hover { background: var(--ink); color: var(--ink-invert); }
+
+.licence-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.licence-list a {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px 18px;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: var(--card);
+  color: inherit;
+  text-decoration: none;
+}
+.licence-list a:hover { border-color: var(--ink); }
+.licence-list b { font-size: 15px; }
+.licence-list span { display: flex; align-items: baseline; gap: 10px; color: var(--ink-3); font-size: 12px; }
+.licence-list code {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--paper-sunk);
+  font-family: var(--font-mono);
+}
+.licence-list time { margin-left: auto; color: var(--ink-3); font-size: 11px; }

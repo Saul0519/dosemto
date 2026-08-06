@@ -446,6 +446,20 @@ export async function listPurchasesForUser(buyerId: string, limit = 50): Promise
   return rows.results.map(toPurchase);
 }
 
+/**
+ * Whether this person has bought anything at all.
+ *
+ * The header asks on every page, so it stops at the first row rather than
+ * counting them.
+ */
+export async function hasPurchases(buyerId: string) {
+  await ensureTables();
+  const db = await getD1();
+  const row = await db.prepare("SELECT 1 AS found FROM store_purchases WHERE buyer_id = ? LIMIT 1")
+    .bind(buyerId).first<{ found: number }>().catch(() => null);
+  return Boolean(row);
+}
+
 /** Looks a purchase up by the number the buyer sees, not its internal id. */
 export async function getPurchaseByOrderNo(orderNo: string): Promise<StorePurchase | null> {
   await ensureTables();

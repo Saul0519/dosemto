@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { listActiveItems } from "../../db/store";
+import { hasPurchases, listActiveItems } from "../../db/store";
+import { getUser } from "../session";
 import { listItemRatings } from "../../db/store-reviews";
 import { SITE } from "../site-content";
 import StoreList from "./list";
@@ -10,10 +11,12 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "상점" };
 
 export default async function StorePage() {
-  const [items, ratings] = await Promise.all([
+  const [items, ratings, user] = await Promise.all([
     listActiveItems().catch(() => []),
     listItemRatings().catch(() => new Map()),
+    getUser().catch(() => null),
   ]);
+  const bought = user ? await hasPurchases(user.id).catch(() => false) : false;
 
   return (
     <div className="market-page">
@@ -28,6 +31,7 @@ export default async function StorePage() {
             <Link href="/">마켓</Link>
             <Link className="active" href="/store">상점</Link>
           </nav>
+          {bought && <Link className="licence-link" href="/store/licence">이용 안내</Link>}
         </div>
       </header>
 

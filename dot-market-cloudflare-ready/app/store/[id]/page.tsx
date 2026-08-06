@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getItem, withoutLicence } from "../../../db/store";
+import { getItem, hasPurchases, withoutLicence } from "../../../db/store";
 import { getItemRating, listItemReviews } from "../../../db/store-reviews";
 import { getUser } from "../../session";
 import { SITE } from "../../site-content";
@@ -29,6 +29,7 @@ export default async function StoreItemPage({ params }: { params: Promise<{ id: 
     getItemRating(item.id).catch(() => ({ average: 0, count: 0, sold: 0 })),
     listItemReviews(item.id).catch(() => []),
   ]);
+  const bought = user ? await hasPurchases(user.id).catch(() => false) : false;
 
   return (
     <div className="market-page">
@@ -43,6 +44,7 @@ export default async function StoreItemPage({ params }: { params: Promise<{ id: 
             <Link href="/">마켓</Link>
             <Link className="active" href="/store">상점</Link>
           </nav>
+          {bought && <Link className="licence-link" href="/store/licence">이용 안내</Link>}
         </div>
       </header>
 

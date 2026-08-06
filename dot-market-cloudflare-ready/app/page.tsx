@@ -8,6 +8,7 @@ import AccountChip from "./account-chip";
 import ShuffleButton from "./shuffle-button";
 import { getUser } from "./session";
 import { getPopup } from "../db/popup";
+import { hasPurchases } from "../db/store";
 import EntryPopup from "./entry-popup";
 import CountView from "./count-view";
 import ReviewNudge from "./review-nudge";
@@ -50,7 +51,12 @@ export default async function Home({ searchParams }: {
   ]);
 
   // Only signed-in visitors can owe a review, so nobody else pays for the query.
-  const nudge = user ? await findNudge(user.id).catch(() => null) : null;
+  const [nudge, bought] = user
+    ? await Promise.all([
+      findNudge(user.id).catch(() => null),
+      hasPurchases(user.id).catch(() => false),
+    ])
+    : [null, false];
 
   // The shuffle lives in the URL: this page renders more than once per request,
   // so a seed invented here would differ between those renders and the order
@@ -96,6 +102,7 @@ export default async function Home({ searchParams }: {
           <nav className="market-nav" aria-label="주요 메뉴">
             {NAV.map((item) => <a href={item.href} key={item.href}>{item.label}</a>)}
           </nav>
+          {bought && <Link className="licence-link" href="/store/licence">이용 안내</Link>}
           <AccountChip userName={user?.name ?? null} next="/"/>
           <Link className="admin-link" href="/admin">샵 관리자</Link>
         </div>
