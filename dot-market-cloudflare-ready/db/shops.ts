@@ -25,7 +25,6 @@ type ShopRow = {
   day_5_multiplier: number;
   day_6_multiplier: number;
   day_7_multiplier: number;
-  cover_image_id: string | null;
   premium: number;
   loyalty_tiers: string | null;
   size_surcharges: string | null;
@@ -76,7 +75,6 @@ export type PublicShop = {
   /** Slots the manager filled by hand, for work taken outside the site. */
   slotManual: number;
   /** Image the manager picked to represent the shop; null means "the first one". */
-  coverImageId: string | null;
   /** When the shop opened. Public because the market list can sort by it. */
   createdAt: string;
   /** Paid placement badge. Public by design — the point is that it shows. */
@@ -186,8 +184,6 @@ async function migrateShopsTable() {
   // Capacity the shop advertises, and the part of it filled by hand.
   await db.prepare("ALTER TABLE shops ADD COLUMN slot_max INTEGER NOT NULL DEFAULT 0").run().catch(() => undefined);
   await db.prepare("ALTER TABLE shops ADD COLUMN slot_manual INTEGER NOT NULL DEFAULT 0").run().catch(() => undefined);
-  // Which uploaded image represents the shop. Null falls back to position order.
-  await db.prepare("ALTER TABLE shops ADD COLUMN cover_image_id TEXT").run().catch(() => undefined);
   // A paid badge, shown on the card. Public and meant to be seen.
   await db.prepare("ALTER TABLE shops ADD COLUMN premium INTEGER NOT NULL DEFAULT 0").run().catch(() => undefined);
   // Hand-set position in the recommended list. Deliberately NOT part of any
@@ -253,7 +249,7 @@ async function seedDefaultShopOnce(db: Awaited<ReturnType<typeof getD1>>) {
 }
 
 const selectColumns = `id, slug, name, description, about_title, about_text, manager_email,
-  webhook_ciphertext, webhook_iv, channel_id, guild_id, slot_max, slot_manual, cover_image_id,
+  webhook_ciphertext, webhook_iv, channel_id, guild_id, slot_max, slot_manual,
   premium, loyalty_tiers, size_surcharges, size_surcharge_on,
   accept_channel_id, reject_channel_id, complete_channel_id, tile_price,
   day_1_multiplier, day_2_multiplier, day_3_multiplier, day_4_multiplier,
@@ -286,22 +282,17 @@ function toImage(row: ShopImageRow): ShopImage {
 }
 
 /**
- * Images newest-last, except the one the manager picked as the cover, which
- * always comes first. Everything downstream — the market card, the gallery's
- * opening frame — reads index 0, so choosing a cover is just this ordering.
- *
- * A cover_image_id left pointing at a deleted image simply matches nothing and
- * the list falls back to position order.
- */
-/**
  * Images for many shops in one query, keyed by shop.
  *
+ * Plain position order. Everything downstream — the market card, the gallery's
+ * opening frame — reads index 0, so the cover is simply whichever picture the
+ * manager dragged to the front.
+ *
  * The list screens used to call listImages once per shop, which is a round trip
- * each. Cover ordering is applied per shop here rather than in SQL, since the
- * rows for every shop come back together.
+ * each.
  */
 async function listImagesByShop(
-  shops: { id: string; cover_image_id: string | null }[],
+  shops: { id: string }[],
 ): Promise<Map<string, ShopImage[]>> {
   const byShop = new Map<string, ShopImage[]>(shops.map((shop) => [shop.id, []]));
   if (shops.length === 0) return byShop;
@@ -314,12 +305,6 @@ async function listImagesByShop(
   ).bind(...shops.map((shop) => shop.id)).all<ShopImageRow>()).catch(() => ({ results: [] }));
 
   for (const row of rows.results) byShop.get(row.shop_id)?.push(toImage(row));
-  for (const shop of shops) {
-    if (!shop.cover_image_id) continue;
-    const images = byShop.get(shop.id);
-    const at = images?.findIndex((image) => image.id === shop.cover_image_id) ?? -1;
-    if (images && at > 0) images.unshift(images.splice(at, 1)[0]);
-  }
   return byShop;
 }
 
@@ -327,9 +312,8 @@ async function listImages(shopId: string): Promise<ShopImage[]> {
   const rows = await getD1().then((db) => db.prepare(`SELECT id, shop_id,
     object_key, filename, content_type, position, created_at
     FROM shop_images WHERE shop_id = ?
-    ORDER BY id = (SELECT cover_image_id FROM shops WHERE id = ?) DESC,
-      position ASC, created_at ASC`
-  ).bind(shopId, shopId).all<ShopImageRow>());
+    ORDER BY position ASC, created_at ASC`
+  ).bind(shopId).all<ShopImageRow>());
   return rows.results.map(toImage);
 }
 
@@ -351,7 +335,6 @@ function toManagedShop(row: ShopRow, images: ShopImage[] = []): ManagedShop {
     guildId: row.guild_id,
     slotMax: row.slot_max ?? 0,
     slotManual: row.slot_manual ?? 0,
-    coverImageId: row.cover_image_id ?? null,
     premium: Boolean(row.premium),
     loyaltyTiers: parseTiers(row.loyalty_tiers),
     sizeSurcharges: parseSurcharges(row.size_surcharges),
@@ -563,15 +546,29 @@ export async function addShopImage(input: {
   return { id, position };
 }
 
-/** Marks one of the shop's own images as its cover. */
-export async function setShopCoverImage(shopId: string, imageId: string) {
+/**
+ * Writes a new order for a shop's pictures.
+ *
+ * Ids that are not this shop's are dropped and any the caller left out keep
+ * their place at the end, so a stale list cannot move another shop's pictures
+ * or lose one uploaded a moment ago.
+ */
+export async function reorderShopImages(shopId: string, orderedIds: string[]) {
   await ensureShopsTable();
   const db = await getD1();
-  const image = await db.prepare("SELECT id FROM shop_images WHERE id = ? AND shop_id = ?")
-    .bind(imageId, shopId).first<{ id: string }>();
-  if (!image) return false;
-  await db.prepare("UPDATE shops SET cover_image_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-    .bind(imageId, shopId).run();
+  const rows = await db.prepare(
+    "SELECT id FROM shop_images WHERE shop_id = ? ORDER BY position ASC, created_at ASC",
+  ).bind(shopId).all<{ id: string }>().catch(() => ({ results: [] as { id: string }[] }));
+
+  const existing: string[] = rows.results.map((row: { id: string }) => row.id);
+  const mine = new Set(existing);
+  const asked = orderedIds.filter((id) => mine.has(id));
+  const seen = new Set(asked);
+  const settled = [...asked, ...existing.filter((id) => !seen.has(id))];
+  if (settled.length === 0) return false;
+
+  await db.batch(settled.map((id, at) =>
+    db.prepare("UPDATE shop_images SET position = ? WHERE id = ? AND shop_id = ?").bind(at, id, shopId)));
   return true;
 }
 
@@ -584,9 +581,6 @@ export async function removeShopImage(shopId: string, imageId: string) {
   if (!image) return null;
   await db.batch([
     db.prepare("DELETE FROM shop_images WHERE id = ? AND shop_id = ?").bind(imageId, shopId),
-    // Otherwise the shop keeps pointing at an image that is gone.
-    db.prepare("UPDATE shops SET cover_image_id = NULL WHERE id = ? AND cover_image_id = ?")
-      .bind(shopId, imageId),
   ]);
   return image.object_key;
 }

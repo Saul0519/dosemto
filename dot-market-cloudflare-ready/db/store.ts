@@ -290,6 +290,30 @@ export async function removeItemImage(itemId: string, imageId: string) {
   return image.object_key;
 }
 
+/**
+ * Writes a new order for a product's pictures. Same rules as the shop side:
+ * ids that are not this product's are dropped, and anything left out keeps its
+ * place at the end.
+ */
+export async function reorderItemImages(itemId: string, orderedIds: string[]) {
+  await ensureTables();
+  const db = await getD1();
+  const rows = await db.prepare(
+    "SELECT id FROM store_images WHERE item_id = ? ORDER BY position ASC, created_at ASC",
+  ).bind(itemId).all<{ id: string }>().catch(() => ({ results: [] as { id: string }[] }));
+
+  const existing: string[] = rows.results.map((row: { id: string }) => row.id);
+  const mine = new Set(existing);
+  const asked = orderedIds.filter((id) => mine.has(id));
+  const seen = new Set(asked);
+  const settled = [...asked, ...existing.filter((id) => !seen.has(id))];
+  if (settled.length === 0) return false;
+
+  await db.batch(settled.map((id, at) =>
+    db.prepare("UPDATE store_images SET position = ? WHERE id = ? AND item_id = ?").bind(at, id, itemId)));
+  return true;
+}
+
 export async function getStoreImageObjectKey(imageId: string) {
   await ensureTables();
   const db = await getD1();

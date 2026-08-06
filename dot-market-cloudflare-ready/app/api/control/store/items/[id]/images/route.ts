@@ -1,5 +1,5 @@
 import { getChatGPTUser } from "../../../../../../chatgpt-auth";
-import { addItemImage, getItem, listAllItems } from "../../../../../../../db/store";
+import { addItemImage, getItem, listAllItems, reorderItemImages } from "../../../../../../../db/store";
 import { MAX_ITEM_IMAGES } from "../../../../../../../db/store-plans";
 import { validateImageFile } from "../../../../../../../db/image-validation";
 import { isSuperAdmin } from "../../../../../../../db/shops";
@@ -50,5 +50,23 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }, { status: 400 });
   }
 
+  return Response.json({ ok: true, items: await listAllItems() });
+}
+
+/** The new left-to-right order. Whatever ends up first becomes the card cover. */
+export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
+  const user = await getChatGPTUser();
+  if (!user || !(await isSuperAdmin(user.email))) {
+    return Response.json({ error: "총괄 관리자만 할 수 있습니다." }, { status: 403 });
+  }
+
+  const { id } = await context.params;
+  const body = await request.json().catch(() => null) as { order?: unknown } | null;
+  const order = Array.isArray(body?.order) ? body.order.map((value) => String(value)) : null;
+  if (!order) return Response.json({ error: "순서를 읽지 못했습니다." }, { status: 400 });
+
+  if (!(await reorderItemImages(id, order))) {
+    return Response.json({ error: "순서를 바꾸지 못했습니다." }, { status: 400 });
+  }
   return Response.json({ ok: true, items: await listAllItems() });
 }

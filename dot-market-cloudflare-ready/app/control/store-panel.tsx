@@ -3,6 +3,7 @@
 import { ChangeEvent, useState } from "react";
 import type { CSSProperties } from "react";
 import { readResult } from "../read-result";
+import SortableImages from "../sortable-images";
 import type { StoreItem, StorePurchase } from "../../db/store";
 import type { ModeratedStoreReview } from "../../db/store-reviews";
 import {
@@ -89,6 +90,17 @@ export default function StorePanel({
       say("사진을 올렸습니다.");
     }, "사진을 올리지 못했습니다.").finally(() => { input.value = ""; });
   };
+
+  const reorderShots = (item: StoreItem, order: string[]) => run(async () => {
+    const response = await fetch(`/api/control/store/items/${item.id}/images`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ order }),
+    });
+    const result = await readResult<{ items: StoreItem[] }>(response, "순서를 바꾸지 못했습니다.");
+    applyImages(result.items);
+    say("순서를 저장했습니다. 맨 앞 사진이 목록 카드에 나옵니다.");
+  }, "순서를 바꾸지 못했습니다.");
 
   const removeShot = (item: StoreItem, imageId: string) => run(async () => {
     const response = await fetch(`/api/control/store/items/${item.id}/images/${imageId}`, { method: "DELETE" });
@@ -308,21 +320,26 @@ export default function StorePanel({
             </div>
 
             <div className="store-shot-admin">
-              <div className="store-shot-list">
-                {item.images.map((image) => (
-                  <figure key={image.id}>
-                    <img src={`/api/store-images/${image.id}`} alt={image.filename}/>
-                    <button type="button" onClick={() => removeShot(item, image.id)} disabled={busy} aria-label="사진 지우기">×</button>
-                  </figure>
-                ))}
+              <SortableImages
+                images={item.images.map((image) => ({
+                  id: image.id,
+                  url: `/api/store-images/${image.id}`,
+                  alt: image.filename,
+                }))}
+                onReorder={(order) => reorderShots(item, order)}
+                onRemove={(imageId) => removeShot(item, imageId)}
+                busy={busy}
+              >
                 {item.images.length < MAX_ITEM_IMAGES && (
-                  <label className="store-shot-add">
+                  <label className="sortable-add">
                     <input type="file" accept="image/*" multiple onChange={(event) => uploadShots(item, event)} disabled={busy}/>
-                    <span>사진 추가</span>
+                    <span>＋ 사진</span>
                   </label>
                 )}
-              </div>
-              <small className="field-help">첫 번째 사진이 목록 카드에 나옵니다. 최대 {MAX_ITEM_IMAGES}장.</small>
+              </SortableImages>
+              <small className="field-help">
+                끌어서 순서를 바꿉니다. 맨 앞 칸에 놓은 사진이 목록 카드에 나옵니다. 최대 {MAX_ITEM_IMAGES}장.
+              </small>
             </div>
 
             <div className="plan-list">

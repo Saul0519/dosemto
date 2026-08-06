@@ -1,5 +1,5 @@
 import { getChatGPTUser } from "../../../../../chatgpt-auth";
-import { addShopImage, getShopForManager } from "../../../../../../db/shops";
+import { addShopImage, getShopForManager, reorderShopImages } from "../../../../../../db/shops";
 import { validateImageFile } from "../../../../../../db/image-validation";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +39,26 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "이미지를 저장하지 못했습니다." }, { status: 400 });
+  }
+  return Response.json({ ok: true, shop: await getShopForManager(id, user.email) });
+}
+
+/** The new left-to-right order. Whatever ends up first becomes the cover. */
+export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
+  const user = await getChatGPTUser();
+  if (!user) return Response.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 });
+  const { id } = await context.params;
+  if (!(await getShopForManager(id, user.email))) {
+    return Response.json({ error: "이 샵을 관리할 권한이 없습니다." }, { status: 403 });
+  }
+
+  const body = await request.json().catch(() => null) as { order?: unknown } | null;
+  const order = Array.isArray(body?.order) ? body.order.map((id) => String(id)) : null;
+  if (!order) return Response.json({ error: "순서를 읽지 못했습니다." }, { status: 400 });
+
+  // reorderShopImages ignores ids belonging to anyone else.
+  if (!(await reorderShopImages(id, order))) {
+    return Response.json({ error: "순서를 바꾸지 못했습니다." }, { status: 400 });
   }
   return Response.json({ ok: true, shop: await getShopForManager(id, user.email) });
 }

@@ -3,6 +3,7 @@
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { readResult } from "../read-result";
+import SortableImages from "../sortable-images";
 import { DEADLINE_CHOICES, deadlineLabel } from "../../db/deadlines";
 import { LoyaltyTier, MAX_TIERS } from "../../db/loyalty";
 import { MAX_SURCHARGES, SizeSurcharge, surchargeThreshold } from "../../db/size-surcharge";
@@ -27,7 +28,6 @@ type ManagedShop = {
   rejectChannelId: string | null;
   completeChannelId: string | null;
   guildId: string | null;
-  coverImageId: string | null;
   loyaltyTiers: LoyaltyTier[];
   sizeSurcharges: SizeSurcharge[];
   sizeSurchargeOn: boolean;
@@ -151,7 +151,7 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
    * the name or description fields but not yet saved.
    */
   const applyImageResult = (next: ManagedShop) => {
-    const patch = { images: next.images, coverImageId: next.coverImageId };
+    const patch = { images: next.images };
     setShops((current) => current.map((shop) => shop.id === next.id ? { ...shop, ...patch } : shop));
     setDraft((current) => current && current.id === next.id ? { ...current, ...patch } : current);
   };
@@ -276,16 +276,20 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
     } finally { setImageBusy(false); }
   };
 
-  const setCover = async (imageId: string) => {
-    if (!draft || draft.coverImageId === imageId) return;
+  const reorderImages = async (order: string[]) => {
+    if (!draft) return;
     setImageBusy(true); say("");
     try {
-      const response = await fetch(`/api/admin/shops/${draft.id}/images/${imageId}`, { method: "PATCH" });
-      const result = await readResult(response, "대표 이미지를 바꾸지 못했습니다.");
+      const response = await fetch(`/api/admin/shops/${draft.id}/images`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ order }),
+      });
+      const result = await readResult(response, "순서를 바꾸지 못했습니다.");
       applyImageResult(result.shop as ManagedShop);
-      say("대표 이미지를 바꿨습니다. 마켓 카드와 샵 소개 첫 화면에 이 이미지가 나옵니다.", "success");
+      say("순서를 저장했습니다. 맨 앞 이미지가 마켓 카드와 샵 소개 첫 화면에 나옵니다.", "success");
     } catch (error) {
-      say(error instanceof Error ? error.message : "대표 이미지를 바꾸지 못했습니다.", "error");
+      say(error instanceof Error ? error.message : "순서를 바꾸지 못했습니다.", "error");
     } finally { setImageBusy(false); }
   };
 
@@ -455,15 +459,38 @@ export default function AdminPanel({ userName, shops: initialShops, orders: init
                   <label>상세 설명<textarea maxLength={12000} rows={16} value={draft.aboutText} onChange={(e) => setDraft({ ...draft, aboutText: e.target.value })} placeholder={"작업에 대해 자유롭게 설명해 주세요.\n\n예시\n• 어떤 스타일로 작업하는지\n• 신청 전에 준비할 것\n• 수정 가능 범위\n• 작업 진행 순서"}/><small>엔터 한 번은 줄바꿈, 두 번은 문단 나누기로 표시됩니다. {draft.aboutText.length.toLocaleString("ko-KR")}/12,000자</small></label>
                 </div>
                 <div className="portfolio-manager">
-                  <div className="portfolio-manager-head"><div><b>작업 이미지</b><span>대표로 지정한 이미지가 마켓 카드와 샵 소개 첫 화면에 나옵니다. 최대 10장.</span></div><label className="plain-upload-button">{imageBusy ? "처리 중…" : "이미지 추가"}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple disabled={imageBusy || draft.images.length >= 10} onChange={uploadImages}/></label></div>
-                  {draft.images.length > 0 ? <div className="portfolio-admin-grid">{draft.images.map((image, index) => (
-                    <figure key={image.id}>
-                      {/* Images are served from the authenticated shop upload API. */}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={`/api/admin/shops/${draft.id}/images/${image.id}`} alt=""/>
-                      <figcaption>{index === 0 ? <span className="is-cover">대표</span> : <button type="button" className="make-cover" disabled={imageBusy} onClick={() => setCover(image.id)}>대표로</button>}<button type="button" disabled={imageBusy} onClick={() => deleteImage(image.id)}>삭제</button></figcaption>
-                    </figure>
-                  ))}</div> : <div className="portfolio-empty"><b>아직 등록된 작업 이미지가 없습니다.</b><span>완성작이나 작업 예시를 올리면 설명 페이지와 마켓 카드에 표시됩니다.</span></div>}
+                  <div className="portfolio-manager-head"><div><b>작업 이미지</b><span>끌어서 순서를 바꿉니다. 맨 앞 칸에 놓은 이미지가 마켓 카드와 샵 소개 첫 화면에 나옵니다. 최대 10장.</span></div></div>
+                  {draft.images.length > 0
+                    ? (
+                      <SortableImages
+                        images={draft.images.map((image) => ({
+                          id: image.id,
+                          // Served from the authenticated shop upload API.
+                          url: `/api/admin/shops/${draft.id}/images/${image.id}`,
+                          alt: "",
+                        }))}
+                        onReorder={reorderImages}
+                        onRemove={deleteImage}
+                        busy={imageBusy}
+                      >
+                        {draft.images.length < 10 && (
+                          <label className="sortable-add">
+                            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple disabled={imageBusy} onChange={uploadImages}/>
+                            <span>{imageBusy ? "처리 중…" : "＋ 이미지"}</span>
+                          </label>
+                        )}
+                      </SortableImages>
+                    )
+                    : (
+                      <div className="portfolio-empty">
+                        <b>아직 등록된 작업 이미지가 없습니다.</b>
+                        <span>완성작이나 작업 예시를 올리면 설명 페이지와 마켓 카드에 표시됩니다.</span>
+                        <label className="plain-upload-button">
+                          {imageBusy ? "처리 중…" : "이미지 추가"}
+                          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple disabled={imageBusy} onChange={uploadImages}/>
+                        </label>
+                      </div>
+                    )}
                 </div>
               </section>
 
