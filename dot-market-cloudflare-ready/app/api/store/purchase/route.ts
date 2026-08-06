@@ -1,5 +1,8 @@
 import { currentUser } from "../../../../db/discord-session";
-import { StorePurchase, getStoreChannelId, recordPurchase } from "../../../../db/store";
+import {
+  StorePurchase, getStoreChannelId, getStoreGuildId, recordPurchase, setPurchaseRoles,
+} from "../../../../db/store";
+import { rolesForMember } from "../../../../db/discord-roles";
 import { won } from "../../../../db/store-plans";
 import { botToken } from "../../../../db/discord-bot";
 
@@ -32,6 +35,17 @@ export async function POST(request: Request) {
   }
   if (!result.ok) return Response.json({ error: result.error }, { status: result.status });
 
+  // Roles are looked up after the row exists, so a slow or unreachable Discord
+  // costs the record nothing. Off unless a server is set.
+  const guildId = await getStoreGuildId().catch(() => "");
+  if (guildId) {
+    const roles = await rolesForMember(guildId, buyer.id).catch(() => null);
+    if (roles && roles.length > 0) {
+      result.purchase.roles = roles;
+      await setPurchaseRoles(result.purchase.id, roles).catch(() => undefined);
+    }
+  }
+
   // Recorded already, so a Discord problem is not the buyer's problem — the
   // request is in the control panel either way.
   await notify(result.purchase).catch(() => undefined);
@@ -62,6 +76,9 @@ async function notify(purchase: StorePurchase) {
           { name: "금액", value: won(purchase.price), inline: true },
           { name: "기간", value: purchase.planLabel, inline: true },
           { name: "디스코드", value: `${purchase.buyerName} (<@${purchase.buyerId}>)`, inline: false },
+          ...(purchase.roles.length > 0
+            ? [{ name: "역할", value: purchase.roles.join(", ").slice(0, 1000), inline: false }]
+            : []),
           ...(purchase.note ? [{ name: "남긴 말", value: purchase.note, inline: false }] : []),
         ],
         timestamp: purchase.createdAt,

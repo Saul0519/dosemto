@@ -29,6 +29,11 @@ export type StoreItem = {
 export type StorePurchase = {
   id: string;
   /**
+   * The buyer's Discord roles when they ordered, if role lookup was on. Empty
+   * means it was off, they were not in the server, or it could not be read.
+   */
+  roles: string[];
+  /**
    * Whether the product still has a page to link to. False once it is deleted,
    * switched off, or left with no priced plan — the purchase record outlives
    * all three.
@@ -57,6 +62,7 @@ type ImageRow = { id: string; item_id: string; filename: string };
 
 type PurchaseRow = {
   id: string; order_no: string | null; item_id: string | null; item_name: string;
+  roles?: string | null;
   item_active?: number | null; item_plans?: string | null;
   plan_label: string; price: number; mc_nick: string; note: string;
   buyer_id: string; buyer_name: string; status: string; created_at: string;
@@ -115,6 +121,9 @@ async function migrate() {
     db.prepare("CREATE INDEX IF NOT EXISTS store_purchases_status_idx ON store_purchases (status, created_at DESC)"),
   ]);
 
+  // Added when purchases started carrying the buyer's server roles.
+  await db.prepare("ALTER TABLE store_purchases ADD COLUMN roles TEXT").run().catch(() => undefined);
+
   // Added when a purchase became something a buyer could come back and review.
   await db.prepare("ALTER TABLE store_purchases ADD COLUMN order_no TEXT").run().catch(() => undefined);
   await db.prepare("ALTER TABLE store_purchases ADD COLUMN item_id TEXT").run().catch(() => undefined);
@@ -141,7 +150,7 @@ function toItem(row: ItemRow, images: StoreImage[] = []): StoreItem {
 
 /* The join answers "does the product still exist", which the id alone cannot. */
 const PURCHASE_COLUMNS = `p.id, p.order_no, p.item_id, p.item_name, p.plan_label, p.price,
-  p.mc_nick, p.note, p.buyer_id, p.buyer_name, p.status, p.created_at,
+  p.mc_nick, p.note, p.buyer_id, p.buyer_name, p.status, p.created_at, p.roles,
   i.active AS item_active, i.plans AS item_plans`;
 const PURCHASE_FROM = "store_purchases p LEFT JOIN store_items i ON i.id = p.item_id";
 
@@ -325,6 +334,7 @@ export async function recordPurchase(input: {
   const price = plan.salePrice > 0 && plan.salePrice < plan.price ? plan.salePrice : plan.price;
   const purchase: StorePurchase = {
     id: crypto.randomUUID(),
+    roles: [],
     itemExists: true,
     orderNo: randomToken(8),
     itemId: item.id,
@@ -354,6 +364,7 @@ export async function recordPurchase(input: {
 function toPurchase(row: PurchaseRow): StorePurchase {
   return {
     id: row.id,
+    roles: row.roles ? row.roles.split("\u001f") : [],
     // The same three conditions the product page checks before rendering, read
     // from the joined row rather than restated in SQL.
     itemExists: Boolean(row.item_active) && parsePlans(row.item_plans).length > 0,
@@ -421,6 +432,26 @@ export async function deletePurchase(id: string) {
 }
 
 /**
+ * Role names are joined on a character no role name can contain, so a comma in
+ * a name cannot split it into two.
+ */
+export async function setPurchaseRoles(id: string, roles: string[]) {
+  await ensureTables();
+  const db = await getD1();
+  await db.prepare("UPDATE store_purchases SET roles = ? WHERE id = ?")
+    .bind(roles.length > 0 ? roles.join("\u001f") : null, id).run().catch(() => undefined);
+}
+
+/** Forgets every role ever recorded. The owner's off switch, after the fact. */
+export async function clearAllPurchaseRoles() {
+  await ensureTables();
+  const db = await getD1();
+  const cleared = await db.prepare("UPDATE store_purchases SET roles = NULL WHERE roles IS NOT NULL")
+    .run().catch(() => null);
+  return cleared?.meta.changes ?? 0;
+}
+
+/**
  * The channel purchase notices go to, kept in site_meta so it can change
  * without a deploy.
  */
@@ -437,4 +468,23 @@ export async function setStoreChannelId(channelId: string) {
   await db.prepare("CREATE TABLE IF NOT EXISTS site_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)").run();
   await db.prepare("INSERT OR REPLACE INTO site_meta (key, value) VALUES ('store_channel_id', ?)")
     .bind(channelId.trim()).run();
+}
+
+/**
+ * The server whose roles get attached to a purchase. Blank turns the lookup
+ * off; nothing else changes and past records stay as they were.
+ */
+export async function getStoreGuildId() {
+  const db = await getD1();
+  await db.prepare("CREATE TABLE IF NOT EXISTS site_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)").run();
+  const row = await db.prepare("SELECT value FROM site_meta WHERE key = 'store_guild_id'")
+    .first<{ value: string }>().catch(() => null);
+  return row?.value ?? "";
+}
+
+export async function setStoreGuildId(guildId: string) {
+  const db = await getD1();
+  await db.prepare("CREATE TABLE IF NOT EXISTS site_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)").run();
+  await db.prepare("INSERT OR REPLACE INTO site_meta (key, value) VALUES ('store_guild_id', ?)")
+    .bind(guildId.trim()).run();
 }

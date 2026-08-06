@@ -4,7 +4,7 @@ import { isSuperAdmin, listAllShops, listFeatureRanks } from "../../db/shops";
 import { listAllReviews } from "../../db/reviews";
 import { listApplications } from "../../db/applications";
 import { discordConfig } from "../../db/discord-session";
-import { getStoreChannelId, listAllItems, listPurchases } from "../../db/store";
+import { getStoreChannelId, getStoreGuildId, listAllItems, listPurchases } from "../../db/store";
 import { listAllReviews as listAllStoreReviews } from "../../db/store-reviews";
 import { getPopupForOwner } from "../../db/popup";
 import { readStats } from "../../db/stats";
@@ -25,11 +25,12 @@ export default async function ControlPage() {
     discordConfig().catch(() => ({ clientId: "" })),
   ]);
 
-  const [storeItems, storePurchases, storeReviews, storeChannelId, popup, stats] = await Promise.all([
+  const [storeItems, storePurchases, storeReviews, storeChannelId, storeGuildId, popup, stats] = await Promise.all([
     listAllItems().catch(() => []),
     listPurchases().catch(() => []),
     listAllStoreReviews().catch(() => []),
     getStoreChannelId().catch(() => ""),
+    getStoreGuildId().catch(() => ""),
     getPopupForOwner().catch(() => ({ active: false, linkUrl: "", imageUrl: null, alt: "", version: "" })),
     readStats(7).catch(() => null),
   ]);
@@ -53,6 +54,7 @@ export default async function ControlPage() {
       storePurchases={storePurchases}
       storeReviews={storeReviews}
       storeChannelId={storeChannelId}
+      storeGuildId={storeGuildId}
       popup={popup}
       stats={stats}
     />

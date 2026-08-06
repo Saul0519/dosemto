@@ -11,12 +11,14 @@ import {
 } from "../../db/store-plans";
 
 export default function StorePanel({
-  initialItems, initialPurchases, initialReviews, initialChannelId, say, busy, setBusy,
+  initialItems, initialPurchases, initialReviews, initialChannelId, initialGuildId,
+  say, busy, setBusy,
 }: {
   initialItems: StoreItem[];
   initialPurchases: StorePurchase[];
   initialReviews: ModeratedStoreReview[];
   initialChannelId: string;
+  initialGuildId: string;
   say: (text: string, kind?: "success" | "error") => void;
   busy: boolean;
   setBusy: (value: boolean) => void;
@@ -26,6 +28,8 @@ export default function StorePanel({
   const [reviews, setReviews] = useState(initialReviews);
   const [channelId, setChannelId] = useState(initialChannelId);
   const [savedChannelId, setSavedChannelId] = useState(initialChannelId);
+  const [guildId, setGuildId] = useState(initialGuildId);
+  const [savedGuildId, setSavedGuildId] = useState(initialGuildId);
   const [newName, setNewName] = useState("");
 
   const patch = (id: string, change: Partial<StoreItem>) =>
@@ -110,6 +114,27 @@ export default function StorePanel({
     say(channelId ? "구매 알림 채널을 저장했습니다." : "구매 알림을 끕니다.");
   }, "채널을 저장하지 못했습니다.");
 
+  const saveGuild = () => run(async () => {
+    const response = await fetch("/api/control/store/guild", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ guildId }),
+    });
+    await readResult(response, "서버를 저장하지 못했습니다.");
+    setSavedGuildId(guildId);
+    say(guildId ? "이제 주문에 그 서버의 역할이 함께 표시됩니다." : "역할 표시를 껐습니다.");
+  }, "서버를 저장하지 못했습니다.");
+
+  const forgetRoles = () => {
+    if (!window.confirm("지금까지 기록된 역할을 모두 지웁니다. 되돌릴 수 없습니다.\n주문 기록 자체는 그대로 남습니다.")) return;
+    void run(async () => {
+      const response = await fetch("/api/control/store/guild", { method: "DELETE" });
+      const result = await readResult<{ cleared: number }>(response, "지우지 못했습니다.");
+      setPurchases((current) => current.map((purchase) => ({ ...purchase, roles: [] })));
+      say(`역할 기록 ${result.cleared}건을 지웠습니다.`);
+    }, "지우지 못했습니다.");
+  };
+
   const markPurchase = (purchase: StorePurchase, handled: boolean) => run(async () => {
     const response = await fetch(`/api/control/store/purchases/${purchase.id}`, {
       method: "PATCH",
@@ -182,6 +207,11 @@ export default function StorePanel({
               <code>주문 {purchase.orderNo}</code>
               <time dateTime={purchase.createdAt}>{purchase.createdAt.slice(0, 10)}</time>
             </div>
+            {purchase.roles.length > 0 && (
+              <div className="purchase-roles">
+                {purchase.roles.map((role) => <b key={role}>{role}</b>)}
+              </div>
+            )}
             {purchase.note && <p className="application-note">{purchase.note}</p>}
             <div className="application-actions">
               <button type="button" onClick={() => markPurchase(purchase, !purchase.handled)} disabled={busy}>
@@ -215,6 +245,31 @@ export default function StorePanel({
             </button>
           </span>
           <small>봇이 글을 쓸 수 있는 채널이어야 합니다. 알림이 실패해도 요청은 위 목록에 남습니다.</small>
+        </label>
+
+        <label className="store-channel">
+          역할을 볼 디스코드 서버 ID
+          <span>
+            <input
+              inputMode="numeric"
+              value={guildId}
+              onChange={(event) => setGuildId(event.target.value)}
+              placeholder="비우면 역할을 보지 않습니다"
+            />
+            <button type="button" onClick={saveGuild} disabled={busy || guildId === savedGuildId}>
+              {guildId === savedGuildId ? "저장됨" : "서버 저장"}
+            </button>
+          </span>
+          <small>
+            주문한 사람이 이 서버에서 어떤 역할을 갖고 있는지 알림과 위 목록에 함께 표시됩니다.
+            봇이 그 서버에 들어가 있어야 읽을 수 있고, 비우면 그때부터 보지 않습니다.
+            이미 기록된 것은 그대로 남으니 지우려면 아래 버튼을 쓰세요.
+          </small>
+          <span>
+            <button type="button" className="danger" onClick={forgetRoles} disabled={busy}>
+              기록된 역할 모두 지우기
+            </button>
+          </span>
         </label>
 
         <label className="store-new">
