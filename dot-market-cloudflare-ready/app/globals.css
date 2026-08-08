@@ -2519,3 +2519,71 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
   font-family: var(--font-mono);
 }
 .licence-list time { margin-left: auto; color: var(--ink-3); font-size: 11px; }
+
+/* ── 자리(슬롯) ─────────────────────────────────────────────────────────
+   A licensed product runs out not of stock but of licences the owner is
+   willing to have live. The bar says how many are left. */
+
+.slot-bar {
+  display: grid;
+  gap: 7px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: var(--paper-sunk);
+}
+.slot-bar-head { display: flex; align-items: baseline; gap: 10px; }
+.slot-bar-head span { color: var(--ink-3); font-size: 11px; font-weight: 700; letter-spacing: .04em; }
+.slot-bar-head b { margin-left: auto; font-family: var(--font-mono); font-size: 15px; }
+.slot-track { height: 7px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.slot-track i { display: block; height: 100%; border-radius: 999px; background: var(--sage-ink); }
+.slot-bar small { color: var(--ink-3); font-size: 11px; }
+
+.slot-bar.is-full { border-color: var(--danger-ink); background: var(--danger-soft); }
+.slot-bar.is-full .slot-bar-head b { color: var(--danger-ink); }
+.slot-bar.is-full .slot-track i { background: var(--danger-ink); }
+
+.store-plans li button:disabled {
+  border-color: var(--line-2);
+  background: var(--line);
+  color: var(--ink-3);
+  cursor: default;
+}
+.store-plans li button:disabled:hover { opacity: 1; }
+
+/* Owner side */
+.slot-admin {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--paper);
+}
+.slot-numbers { display: flex; gap: 18px; flex-wrap: wrap; }
+.slot-numbers label { display: grid; gap: 5px; }
+.slot-numbers label > span { color: var(--ink-3); font-size: 11px; font-weight: 700; }
+.slot-numbers input {
+  width: 96px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--paper);
+  font: inherit;
+  font-size: 13px;
+}
+.slot-numbers em { color: var(--ink-3); font-size: 11px; font-style: normal; }
+.slot-exempt { display: grid; gap: 6px; }
+.slot-exempt > span { font-size: 12px; font-weight: 700; }
+.slot-exempt > span small { color: var(--ink-3); font-size: 11px; font-weight: 400; }
+.slot-exempt textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 9px;
+  background: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.7;
+  resize: vertical;
+}

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getItem, hasPurchases, withoutLicence } from "../../../db/store";
+import { getItem, hasPurchases, slotsForItem, withoutLicence } from "../../../db/store";
 import { getItemRating, listItemReviews } from "../../../db/store-reviews";
 import { getUser } from "../../session";
 import { SITE } from "../../site-content";
@@ -30,6 +30,7 @@ export default async function StoreItemPage({ params }: { params: Promise<{ id: 
     listItemReviews(item.id).catch(() => []),
   ]);
   const bought = user ? await hasPurchases(user.id).catch(() => false) : false;
+  const slots = await slotsForItem(item).catch(() => null);
 
   return (
     <div className="market-page">
@@ -74,7 +75,25 @@ export default async function StoreItemPage({ params }: { params: Promise<{ id: 
                   {rating.sold > 0 && <span>· 판매 {rating.sold}건</span>}
                 </p>
 
-                <BuyPanel item={item} signedIn={Boolean(user)} buyerName={user?.name ?? ""}/>
+                {slots?.enabled && (
+                  <div className={`slot-bar${slots.full ? " is-full" : ""}`}>
+                    <div className="slot-bar-head">
+                      <span>남은 자리</span>
+                      <b>{slots.full ? "마감" : `${slots.free}자리`}</b>
+                    </div>
+                    <div className="slot-track" role="img" aria-label={`${slots.max}자리 중 ${slots.used}자리 사용`}>
+                      <i style={{ width: `${Math.min(100, (slots.used / slots.max) * 100)}%` }}/>
+                    </div>
+                    <small>{slots.max}자리 중 {slots.used}자리 나갔습니다.</small>
+                  </div>
+                )}
+
+                <BuyPanel
+                  item={item}
+                  signedIn={Boolean(user)}
+                  buyerName={user?.name ?? ""}
+                  soldOut={Boolean(slots?.full)}
+                />
 
                 <ol className="store-detail-how">
                   <li>구매를 누르면 운영자에게 알림이 갑니다.</li>

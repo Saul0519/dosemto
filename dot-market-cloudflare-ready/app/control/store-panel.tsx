@@ -54,13 +54,14 @@ const LICENCE_TEMPLATE = `## 저작권 안내
 
 export default function StorePanel({
   initialItems, initialPurchases, initialReviews, initialChannelId, initialGuildId,
-  say, busy, setBusy,
+  licenceServer, say, busy, setBusy,
 }: {
   initialItems: StoreItem[];
   initialPurchases: StorePurchase[];
   initialReviews: ModeratedStoreReview[];
   initialChannelId: string;
   initialGuildId: string;
+  licenceServer: { url: string; hasToken: boolean };
   say: (text: string, kind?: "success" | "error") => void;
   busy: boolean;
   setBusy: (value: boolean) => void;
@@ -73,6 +74,11 @@ export default function StorePanel({
   const [guildId, setGuildId] = useState(initialGuildId);
   const [savedGuildId, setSavedGuildId] = useState(initialGuildId);
   const [newName, setNewName] = useState("");
+  const [licenceUrl, setLicenceUrl] = useState(licenceServer.url);
+  const [savedLicenceUrl, setSavedLicenceUrl] = useState(licenceServer.url);
+  // Never filled from the server: a stored secret is not sent back to the page.
+  const [licenceToken, setLicenceToken] = useState("");
+  const [hasToken, setHasToken] = useState(licenceServer.hasToken);
 
   const patch = (id: string, change: Partial<StoreItem>) =>
     setItems((current) => current.map((item) => item.id === id ? { ...item, ...change } : item));
@@ -187,6 +193,25 @@ export default function StorePanel({
       say(`역할 기록 ${result.cleared}건을 지웠습니다.`);
     }, "지우지 못했습니다.");
   };
+
+  const saveLicenceServer = () => run(async () => {
+    const response = await fetch("/api/control/store/licence-server", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url: licenceUrl, ...(licenceToken ? { token: licenceToken } : {}) }),
+    });
+    const result = await readResult<{ url: string; hasToken: boolean }>(response, "저장하지 못했습니다.");
+    setSavedLicenceUrl(result.url);
+    setHasToken(result.hasToken);
+    setLicenceToken("");
+    say(result.url ? "라이선스 서버를 저장했습니다. 연결 확인을 눌러보세요." : "라이선스 연동을 껐습니다.");
+  }, "저장하지 못했습니다.");
+
+  const testLicenceServer = () => run(async () => {
+    const response = await fetch("/api/control/store/licence-server", { method: "POST" });
+    const result = await readResult<{ count: number; sample: string[] }>(response, "확인하지 못했습니다.");
+    say(`라이선스 ${result.count}개를 읽었습니다.${result.sample.length > 0 ? ` 예: ${result.sample.join(", ")}` : ""}`);
+  }, "확인하지 못했습니다.");
 
   const markPurchase = (purchase: StorePurchase, handled: boolean) => run(async () => {
     const response = await fetch(`/api/control/store/purchases/${purchase.id}`, {
@@ -323,6 +348,36 @@ export default function StorePanel({
               기록된 역할 모두 지우기
             </button>
           </span>
+        </label>
+
+        <label className="store-channel">
+          라이선스 서버 주소
+          <span>
+            <input
+              value={licenceUrl}
+              onChange={(event) => setLicenceUrl(event.target.value)}
+              placeholder="https://…/api/licenses (비우면 연동 끔)"
+            />
+            <button type="button" onClick={saveLicenceServer} disabled={busy || (licenceUrl === savedLicenceUrl && !licenceToken)}>
+              {licenceUrl === savedLicenceUrl && !licenceToken ? "저장됨" : "주소 저장"}
+            </button>
+          </span>
+          <span>
+            <input
+              type="password"
+              value={licenceToken}
+              onChange={(event) => setLicenceToken(event.target.value)}
+              placeholder={hasToken ? "토큰 저장됨 · 바꾸려면 새로 입력" : "토큰 (필요하면)"}
+              autoComplete="off"
+            />
+            <button type="button" onClick={testLicenceServer} disabled={busy || !savedLicenceUrl}>
+              연결 확인
+            </button>
+          </span>
+          <small>
+            발급된 라이선스 목록을 JSON으로 돌려주는 주소입니다. 여기서 읽은 개수만큼 상품의
+            자리가 자동으로 찹니다. 비워두면 자동으로 차지 않고 수동 값만 씁니다.
+          </small>
         </label>
 
         <label className="store-new">
@@ -482,6 +537,40 @@ export default function StorePanel({
                     plans: [...item.plans, { label: "", price: 0, salePrice: 0, colour: DEFAULT_SALE_COLOUR }],
                   })}
                 >＋ 기간 추가</button>
+              )}
+            </div>
+
+            <div className="slot-admin">
+              <label className="switch-row">
+                <input type="checkbox" checked={item.slotOn} onChange={(event) => patch(item.id, { slotOn: event.target.checked })}/>
+                <span>자리 제한 쓰기</span>
+              </label>
+              {item.slotOn && (
+                <>
+                  <div className="slot-numbers">
+                    <label>
+                      <span>최대 자리</span>
+                      <input type="number" min={0} max={9999} value={item.slotMax}
+                        onChange={(event) => patch(item.id, { slotMax: Math.max(0, Math.min(9999, Math.trunc(Number(event.target.value) || 0))) })}/>
+                    </label>
+                    <label>
+                      <span>수동으로 채운 자리</span>
+                      <input type="number" min={0} max={9999} value={item.slotManual}
+                        onChange={(event) => patch(item.id, { slotManual: Math.max(0, Math.min(9999, Math.trunc(Number(event.target.value) || 0))) })}/>
+                      <em>라이선스 서버 밖에서 나간 몫</em>
+                    </label>
+                  </div>
+                  <label className="slot-exempt">
+                    <span>자리를 차지하지 않는 키 <small>한 줄에 하나. 닉네임(KEY) 형태로 붙여넣어도 됩니다</small></span>
+                    <textarea
+                      value={item.exemptKeys}
+                      maxLength={4000}
+                      rows={4}
+                      placeholder={"west_cat(PA9GX7Z8D5GG3T)\nChoHa_(PAD6NNS5Z22458)"}
+                      onChange={(event) => patch(item.id, { exemptKeys: event.target.value })}
+                    />
+                  </label>
+                </>
               )}
             </div>
 

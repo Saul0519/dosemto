@@ -8,6 +8,8 @@
 
 import { MAX_ITEM_IMAGES, StorePlan, parsePlans, serialisePlans } from "./store-plans";
 import { randomToken } from "./random-token";
+import { countChargeable, parseExemptKeys, storeSlotState } from "./store-slots";
+import { fetchLicenceKeys } from "./licence-server";
 
 export type StoreImage = { id: string; filename: string };
 
@@ -29,6 +31,14 @@ export type StoreItem = {
   images: StoreImage[];
   active: boolean;
   position: number;
+  /** Whether the limit on live licences applies at all. */
+  slotOn: boolean;
+  /** How many licences may be live at once. */
+  slotMax: number;
+  /** Slots the owner filled by hand, for anything agreed elsewhere. */
+  slotManual: number;
+  /** Keys that do not take a slot, one per line. */
+  exemptKeys: string;
 };
 
 export type StorePurchase = {
@@ -61,6 +71,8 @@ export type StorePurchase = {
 type ItemRow = {
   id: string; name: string; description: string; detail: string | null; tagline: string;
   licence: string | null; plans: string | null; active: number; position: number;
+  slot_on?: number | null; slot_max?: number | null; slot_manual?: number | null;
+  exempt_keys?: string | null;
 };
 
 type ImageRow = { id: string; item_id: string; filename: string };
@@ -135,6 +147,12 @@ async function migrate() {
   await db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS store_purchases_order_no_idx ON store_purchases (order_no)")
     .run().catch(() => undefined);
 
+  // Added when a licensed product had to stop being sold past its limit.
+  await db.prepare("ALTER TABLE store_items ADD COLUMN slot_on INTEGER NOT NULL DEFAULT 0").run().catch(() => undefined);
+  await db.prepare("ALTER TABLE store_items ADD COLUMN slot_max INTEGER NOT NULL DEFAULT 0").run().catch(() => undefined);
+  await db.prepare("ALTER TABLE store_items ADD COLUMN slot_manual INTEGER NOT NULL DEFAULT 0").run().catch(() => undefined);
+  await db.prepare(`ALTER TABLE store_items ADD COLUMN exempt_keys TEXT NOT NULL DEFAULT ''`).run().catch(() => undefined);
+
   // Added when a purchase started coming with terms attached.
   await db.prepare(`ALTER TABLE store_items ADD COLUMN licence TEXT NOT NULL DEFAULT ''`).run().catch(() => undefined);
 
@@ -154,6 +172,10 @@ function toItem(row: ItemRow, images: StoreImage[] = []): StoreItem {
     images,
     active: Boolean(row.active),
     position: row.position,
+    slotOn: Boolean(row.slot_on),
+    slotMax: Math.max(0, row.slot_max ?? 0),
+    slotManual: Math.max(0, row.slot_manual ?? 0),
+    exemptKeys: row.exempt_keys ?? "",
   };
 }
 
@@ -163,7 +185,8 @@ const PURCHASE_COLUMNS = `p.id, p.order_no, p.item_id, p.item_name, p.plan_label
   i.active AS item_active, i.plans AS item_plans`;
 const PURCHASE_FROM = "store_purchases p LEFT JOIN store_items i ON i.id = p.item_id";
 
-const ITEM_COLUMNS = "id, name, description, detail, licence, tagline, plans, active, position";
+const ITEM_COLUMNS = `id, name, description, detail, licence, tagline, plans, active, position,
+  slot_on, slot_max, slot_manual, exempt_keys`;
 
 /** One query for every item's pictures rather than one query each. */
 async function listImagesByItem(rows: ItemRow[]) {
@@ -243,11 +266,16 @@ export async function updateItem(id: string, input: {
   plans: StorePlan[];
   active: boolean;
   position: number;
+  slotOn: boolean;
+  slotMax: number;
+  slotManual: number;
+  exemptKeys: string;
 }) {
   await ensureTables();
   const db = await getD1();
   await db.prepare(`UPDATE store_items SET name = ?, description = ?, detail = ?, licence = ?,
-    tagline = ?, plans = ?, active = ?, position = ? WHERE id = ?`).bind(
+    tagline = ?, plans = ?, active = ?, position = ?,
+    slot_on = ?, slot_max = ?, slot_manual = ?, exempt_keys = ? WHERE id = ?`).bind(
     input.name.trim().slice(0, 60) || "새 상품",
     input.description.trim().slice(0, 600),
     input.detail.trim().slice(0, 4000),
@@ -256,6 +284,10 @@ export async function updateItem(id: string, input: {
     serialisePlans(input.plans),
     input.active ? 1 : 0,
     Math.max(0, Math.min(999, Math.trunc(input.position) || 0)),
+    input.slotOn ? 1 : 0,
+    Math.max(0, Math.min(9999, Math.trunc(input.slotMax) || 0)),
+    Math.max(0, Math.min(9999, Math.trunc(input.slotManual) || 0)),
+    input.exemptKeys.trim().slice(0, 4000),
     id,
   ).run();
 }
@@ -363,6 +395,17 @@ export async function recordPurchase(input: {
   const plan = item.plans.find((candidate) => candidate.label === input.planLabel);
   if (!plan) return { ok: false, error: "그런 기간이 없습니다.", status: 400 };
 
+  // Checked here rather than only in the page, so a stale tab cannot slip an
+  // order past a limit that filled up while it was open.
+  const slots = await slotsForItem(item).catch(() => null);
+  if (slots?.full) {
+    return {
+      ok: false,
+      error: "지금은 자리가 다 찼습니다. 자리가 나면 다시 열립니다.",
+      status: 409,
+    };
+  }
+
   const mcNick = input.mcNick.trim();
   if (!/^[A-Za-z0-9_]{3,16}$/.test(mcNick)) {
     return {
@@ -433,6 +476,26 @@ export async function listPurchases(limit = 100): Promise<StorePurchase[]> {
       ORDER BY p.status = 'new' DESC, p.created_at DESC LIMIT ?`,
   ).bind(limit).all<PurchaseRow>().catch(() => ({ results: [] as PurchaseRow[] }));
   return rows.results.map(toPurchase);
+}
+
+/**
+ * How full this product is, counting live licences and the owner's manual fill.
+ *
+ * A licence server that cannot be reached leaves the count stale, and a stale
+ * count never turns anyone away — being short is likelier than being over.
+ */
+export async function slotsForItem(item: StoreItem) {
+  if (!item.slotOn || item.slotMax <= 0) {
+    return storeSlotState({ slotOn: false, slotMax: 0, slotManual: 0, licences: 0 });
+  }
+  const { keys, stale } = await fetchLicenceKeys();
+  return storeSlotState({
+    slotOn: item.slotOn,
+    slotMax: item.slotMax,
+    slotManual: item.slotManual,
+    licences: countChargeable(keys, parseExemptKeys(item.exemptKeys)),
+    stale,
+  });
 }
 
 /** A buyer's own purchases, for their profile page. */

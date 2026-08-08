@@ -33,6 +33,10 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     plans: Array.isArray(body.plans) ? body.plans as StorePlan[] : [],
     active: body.active === true,
     position: Number(body.position) || 0,
+    slotOn: body.slotOn === true,
+    slotMax: Number(body.slotMax) || 0,
+    slotManual: Number(body.slotManual) || 0,
+    exemptKeys: String(body.exemptKeys ?? ""),
   });
   return Response.json({ ok: true, items: await listAllItems() });
 }

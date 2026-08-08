@@ -7,10 +7,12 @@ import type { StoreItem } from "../../../db/store";
 import { StorePlan, discountPercent, effectivePrice, isOnSale, readableOn, won } from "../../../db/store-plans";
 import type { CSSProperties } from "react";
 
-export default function BuyPanel({ item, signedIn, buyerName }: {
+export default function BuyPanel({ item, signedIn, buyerName, soldOut }: {
   item: StoreItem;
   signedIn: boolean;
   buyerName: string;
+  /** Every slot is taken, so there is nothing to sell right now. */
+  soldOut: boolean;
 }) {
   const [chosen, setChosen] = useState<StorePlan | null>(null);
   const [mcNick, setMcNick] = useState("");
@@ -117,7 +119,11 @@ export default function BuyPanel({ item, signedIn, buyerName }: {
                 )}
                 <strong>{won(effectivePrice(plan))}</strong>
               </span>
-              <button type="button" onClick={() => { setChosen(plan); setError(""); }}>구매</button>
+              <button
+                type="button"
+                disabled={soldOut}
+                onClick={() => { setChosen(plan); setError(""); }}
+              >{soldOut ? "마감" : "구매"}</button>
             </li>
           );
         })}
