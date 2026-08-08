@@ -8,8 +8,8 @@
 
 import { MAX_ITEM_IMAGES, StorePlan, parsePlans, serialisePlans } from "./store-plans";
 import { randomToken } from "./random-token";
-import { countChargeable, parseExemptKeys, storeSlotState } from "./store-slots";
-import { fetchLicenceKeys } from "./licence-server";
+import { parseExemptKeys, storeSlotState } from "./store-slots";
+import { countLive, fetchLicences } from "./licence-server";
 
 export type StoreImage = { id: string; filename: string };
 
@@ -488,12 +488,12 @@ export async function slotsForItem(item: StoreItem) {
   if (!item.slotOn || item.slotMax <= 0) {
     return storeSlotState({ slotOn: false, slotMax: 0, slotManual: 0, licences: 0 });
   }
-  const { keys, stale } = await fetchLicenceKeys();
+  const { rows, stale } = await fetchLicences();
   return storeSlotState({
     slotOn: item.slotOn,
     slotMax: item.slotMax,
     slotManual: item.slotManual,
-    licences: countChargeable(keys, parseExemptKeys(item.exemptKeys)),
+    licences: countLive(rows, parseExemptKeys(item.exemptKeys)),
     stale,
   });
 }

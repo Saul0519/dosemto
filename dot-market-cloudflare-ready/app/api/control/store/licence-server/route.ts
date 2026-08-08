@@ -1,5 +1,5 @@
 import { getChatGPTUser } from "../../../../chatgpt-auth";
-import { fetchLicenceKeys, forgetLicenceCache, getLicenceServer, setLicenceServer } from "../../../../../db/licence-server";
+import { fetchLicences, forgetLicenceCache, getLicenceServer, setLicenceServer } from "../../../../../db/licence-server";
 import { isSuperAdmin } from "../../../../../db/shops";
 
 export const dynamic = "force-dynamic";
@@ -46,12 +46,20 @@ export async function POST() {
   if (blocked) return blocked;
 
   forgetLicenceCache();
-  const { keys, stale, configured } = await fetchLicenceKeys();
+  const { rows, stale, configured } = await fetchLicences();
   if (!configured) return Response.json({ error: "먼저 주소를 저장해 주세요." }, { status: 400 });
   if (stale) {
     return Response.json({
-      error: "라이선스 서버에서 목록을 읽지 못했습니다. 주소와 토큰, 그리고 그 주소가 JSON을 돌려주는지 확인해 주세요.",
+      error: "라이선스 서버에서 목록을 읽지 못했습니다. 주소와 토큰을 확인해 주세요.",
     }, { status: 502 });
   }
-  return Response.json({ ok: true, count: keys.length, sample: keys.slice(0, 5) });
+  // Grouped by state so the owner can see at a glance that expiry is understood.
+  const byState: Record<string, number> = {};
+  for (const row of rows) byState[row.state] = (byState[row.state] ?? 0) + 1;
+  return Response.json({
+    ok: true,
+    count: rows.length,
+    byState,
+    sample: rows.slice(0, 5).map((row) => row.code),
+  });
 }

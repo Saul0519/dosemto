@@ -209,8 +209,10 @@ export default function StorePanel({
 
   const testLicenceServer = () => run(async () => {
     const response = await fetch("/api/control/store/licence-server", { method: "POST" });
-    const result = await readResult<{ count: number; sample: string[] }>(response, "확인하지 못했습니다.");
-    say(`라이선스 ${result.count}개를 읽었습니다.${result.sample.length > 0 ? ` 예: ${result.sample.join(", ")}` : ""}`);
+    const result = await readResult<{ count: number; byState: Record<string, number> }>(
+      response, "확인하지 못했습니다.");
+    const states = Object.entries(result.byState).map(([state, n]) => `${state} ${n}`).join(" · ");
+    say(`라이선스 ${result.count}개를 읽었습니다.${states ? ` (${states})` : ""}`);
   }, "확인하지 못했습니다.");
 
   const markPurchase = (purchase: StorePurchase, handled: boolean) => run(async () => {
@@ -356,7 +358,7 @@ export default function StorePanel({
             <input
               value={licenceUrl}
               onChange={(event) => setLicenceUrl(event.target.value)}
-              placeholder="https://…/api/licenses (비우면 연동 끔)"
+              placeholder="https://…/api/list (비우면 연동 끔)"
             />
             <button type="button" onClick={saveLicenceServer} disabled={busy || (licenceUrl === savedLicenceUrl && !licenceToken)}>
               {licenceUrl === savedLicenceUrl && !licenceToken ? "저장됨" : "주소 저장"}
@@ -375,8 +377,10 @@ export default function StorePanel({
             </button>
           </span>
           <small>
-            발급된 라이선스 목록을 JSON으로 돌려주는 주소입니다. 여기서 읽은 개수만큼 상품의
-            자리가 자동으로 찹니다. 비워두면 자동으로 차지 않고 수동 값만 씁니다.
+            라이선스 서버의 <code>/api/list</code> 주소와 <code>MARKET_TOKEN</code>입니다.
+            여기서 읽은 살아있는 라이선스 수만큼 상품의 자리가 자동으로 찹니다. 만료·정지된
+            것은 세지 않으므로 기간이 끝나면 그 자리가 다시 열립니다. 비워두면 자동으로 차지
+            않고 수동 값만 씁니다.
           </small>
         </label>
 
@@ -569,6 +573,10 @@ export default function StorePanel({
                       placeholder={"west_cat(PA9GX7Z8D5GG3T)\nChoHa_(PAD6NNS5Z22458)"}
                       onChange={(event) => patch(item.id, { exemptKeys: event.target.value })}
                     />
+                    <em>
+                      라이선스 서버는 코드를 앞 6자만 남기고 가려서 주므로, 여기 적은 키도
+                      같은 방식으로 가려서 맞춥니다. 전체 키를 그대로 적으면 됩니다.
+                    </em>
                   </label>
                 </>
               )}

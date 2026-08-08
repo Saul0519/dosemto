@@ -2533,8 +2533,17 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
   background: var(--paper-sunk);
 }
 .slot-bar-head { display: flex; align-items: baseline; gap: 10px; }
-.slot-bar-head span { color: var(--ink-3); font-size: 11px; font-weight: 700; letter-spacing: .04em; }
-.slot-bar-head b { margin-left: auto; font-family: var(--font-mono); font-size: 15px; }
+/* The label must not wrap: "남은 자리" split over two lines put the track
+   between its own words. */
+.slot-bar-head span {
+  flex: none;
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.slot-bar-head b { margin-left: auto; font-family: var(--font-mono); font-size: 15px; white-space: nowrap; }
 .slot-track { height: 7px; border-radius: 999px; background: var(--line); overflow: hidden; }
 .slot-track i { display: block; height: 100%; border-radius: 999px; background: var(--sage-ink); }
 .slot-bar small { color: var(--ink-3); font-size: 11px; }
@@ -2576,6 +2585,7 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 .slot-exempt { display: grid; gap: 6px; }
 .slot-exempt > span { font-size: 12px; font-weight: 700; }
 .slot-exempt > span small { color: var(--ink-3); font-size: 11px; font-weight: 400; }
+.slot-exempt > em { color: var(--ink-3); font-size: 11px; font-style: normal; line-height: 1.6; }
 .slot-exempt textarea {
   width: 100%;
   padding: 9px 12px;

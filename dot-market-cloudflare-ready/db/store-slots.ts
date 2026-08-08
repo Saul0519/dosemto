@@ -68,9 +68,3 @@ export function parseExemptKeys(raw: string | null | undefined): string[] {
     })
     .filter((key) => key.length > 0);
 }
-
-/** Counts the licences that take a slot. */
-export function countChargeable(keys: string[], exempt: string[]) {
-  const skip = new Set(exempt);
-  return keys.filter((key) => !skip.has(key.trim().toUpperCase())).length;
-}
