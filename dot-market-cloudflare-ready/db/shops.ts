@@ -738,6 +738,15 @@ export async function updateShopControl(id: string, input: {
   ).run());
 }
 
+/** The shop already using this Discord server, if any. */
+export async function shopUsingGuild(guildId: string) {
+  await ensureShopsTable();
+  const db = await getD1();
+  const row = await db.prepare("SELECT id FROM shops WHERE guild_id = ? LIMIT 1")
+    .bind(guildId).first<{ id: string }>().catch(() => null);
+  return row?.id ?? null;
+}
+
 /** Records the server a shop's manager just invited the bot to. */
 export async function setShopGuild(id: string, guildId: string) {
   await ensureShopsTable();

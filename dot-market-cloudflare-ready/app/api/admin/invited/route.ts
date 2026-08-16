@@ -1,6 +1,7 @@
 import { cookieHeader, readCookie } from "../../../../db/discord-session";
 import { getChatGPTUser } from "../../../chatgpt-auth";
-import { getShopForManager, setShopGuild } from "../../../../db/shops";
+import { getShopForManager, setShopGuild, shopUsingGuild } from "../../../../db/shops";
+import { guildChannels } from "../../../../db/discord-bot";
 import { INVITE_STATE_COOKIE } from "../invite/route";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,21 @@ export async function GET(request: Request) {
 
   const user = await getChatGPTUser();
   if (!user || !(await getShopForManager(shopId, user.email))) return done("forbidden");
+
+  // Everything above proves the manager started this from their own shop. None
+  // of it proves anything about the server named at the end, and that name
+  // arrives in the address bar. Two things have to hold before a shop takes it.
+
+  // The bot must really be in there. That is what makes this an invitation
+  // rather than a claim: adding the bot needs "manage server" in that server,
+  // so somebody who runs it let us in.
+  if (!(await guildChannels(guildId))) return done("nobot");
+
+  // And nobody else may already be using it. Otherwise a shop could name the
+  // server another shop runs, and start posting its orders — names, mentions,
+  // reference pictures — into somebody else's channels.
+  const taken = await shopUsingGuild(guildId);
+  if (taken && taken !== shopId) return done("taken");
 
   try {
     await setShopGuild(shopId, guildId);

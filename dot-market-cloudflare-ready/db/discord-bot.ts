@@ -50,6 +50,38 @@ async function call(path: string, init: RequestInit & { token: string }) {
   return response;
 }
 
+/** Text (0) and announcement (5) are the only kinds the bot can post in. */
+const POSTABLE = new Set([0, 5]);
+
+/**
+ * The channels of one server the bot could post in, in the server's own order.
+ *
+ * The channel picker offers exactly this list and saving accepts exactly this
+ * list, so a manager can never be shown a channel that will then be refused.
+ *
+ * Returns null when the answer is unknown — no token, bot not in the server,
+ * Discord unreachable. That is not the same as an empty list, and callers must
+ * not treat it as one: not knowing whose channel this is is not permission to
+ * store it.
+ */
+export async function guildChannels(guildId: string) {
+  if (!/^\d{17,20}$/.test(guildId)) return null;
+  const token = await botToken();
+  if (!token) return null;
+
+  const response = await call(`/guilds/${guildId}/channels`, { token }).catch(() => null);
+  if (!response?.ok) return null;
+
+  const all = await response.json().catch(() => null) as
+    { id: string; name: string; type: number; position?: number }[] | null;
+  if (!Array.isArray(all)) return null;
+
+  return all
+    .filter((channel) => POSTABLE.has(channel.type))
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    .map((channel) => ({ id: channel.id, name: channel.name }));
+}
+
 /** Posts the order notification with its buttons. Returns the message id. */
 export async function postOrderMessage(input: {
   channelId: string;

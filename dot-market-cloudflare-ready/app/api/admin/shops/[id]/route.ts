@@ -1,6 +1,7 @@
 import { getChatGPTUser } from "../../../../chatgpt-auth";
 import { getShopForManager, updateShopSettings, validPricing } from "../../../../../db/shops";
 import { LoyaltyTier, normaliseTiers } from "../../../../../db/loyalty";
+import { guildChannels } from "../../../../../db/discord-bot";
 import { SizeSurcharge, normaliseSurcharges } from "../../../../../db/size-surcharge";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 });
   const { id } = await context.params;
-  if (!(await getShopForManager(id, user.email))) {
+  const shop = await getShopForManager(id, user.email);
+  if (!shop) {
     return Response.json({ error: "이 샵을 관리할 권한이 없습니다." }, { status: 403 });
   }
 
@@ -53,6 +55,37 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   // A shop is free to set no limit at all; 0 means "never blocked".
   const slotMax = Math.max(0, Math.min(999, Math.trunc(Number(body.slotMax) || 0)));
   const slotManual = Math.max(0, Math.min(999, Math.trunc(Number(body.slotManual) || 0)));
+
+  // A snowflake shape only says "this is a channel id", not whose. Without this
+  // a manager could point their shop at a channel in somebody else's server,
+  // and every order here — the customer's name, their mention, their note, both
+  // pictures — would be posted over there.
+  const wanted = [channelId, outcomeChannel(body.acceptChannelId),
+    outcomeChannel(body.rejectChannelId), outcomeChannel(body.completeChannelId)]
+    .filter((value): value is string => typeof value === "string");
+
+  if (wanted.length > 0) {
+    if (!shop.guildId) {
+      return Response.json({
+        error: "먼저 봇을 서버에 추가해 주세요. 그래야 어느 서버의 채널인지 확인할 수 있습니다.",
+      }, { status: 400 });
+    }
+    const mine = await guildChannels(shop.guildId);
+    if (!mine) {
+      // Not knowing is not permission. Better that a manager retries than that
+      // a shop quietly starts posting somewhere it should not.
+      return Response.json({
+        error: "지금 채널 목록을 확인할 수 없습니다. 봇이 서버에 있는지 확인하고 잠시 후 다시 저장해 주세요.",
+      }, { status: 503 });
+    }
+    const ours = new Set(mine.map((channel) => channel.id));
+    const stranger = wanted.find((value) => !ours.has(value));
+    if (stranger) {
+      return Response.json({
+        error: "이 샵의 디스코드 서버에 없는 채널입니다. 목록에서 골라주세요.",
+      }, { status: 400 });
+    }
+  }
 
   // normaliseTiers drops anything malformed, so a hand-made request cannot put
   // a blank or absurd title on the page.
