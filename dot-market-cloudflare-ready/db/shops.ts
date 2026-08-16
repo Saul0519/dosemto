@@ -352,13 +352,45 @@ function toOrderShop(row: ShopRow): OrderShop {
   return toManagedShop(row);
 }
 
+/**
+ * Drops everything a customer has no business seeing.
+ *
+ * toManagedShop builds the full row, and a `Promise<PublicShop>` annotation
+ * prunes nothing at run time — the object still carries the manager's email and
+ * the shop's channel ids. The order screen is a client component, so every
+ * property it is handed is serialised into the page. The manager's email is the
+ * identity that gets into /admin, so publishing it hands out the guest list.
+ *
+ * Built by removing, not by copying: a field added to ManagedShop later stays
+ * out of here on its own, and one added to PublicShop is not silently dropped.
+ */
+export function toPublicShop(shop: ManagedShop): PublicShop {
+  // Naming them is how they are dropped, so being unused is the whole point.
+  /* eslint-disable @typescript-eslint/no-unused-vars */
+  const {
+    managerEmail: _email,
+    active: _active,
+    updatedAt: _updated,
+    acceptChannelId: _accept,
+    rejectChannelId: _reject,
+    completeChannelId: _complete,
+    channelId: _channel,
+    guildId: _guild,
+    ...rest
+  } = shop;
+  /* eslint-enable @typescript-eslint/no-unused-vars */
+  // The two the customer's screen never reads, blanked rather than removed so
+  // the shape still matches PublicShop.
+  return { ...rest, channelId: null, guildId: null };
+}
+
 export async function listPublicShops(): Promise<PublicShop[]> {
   await ensureShopsTable();
   const rows = await getD1().then((db) => db.prepare(
     `SELECT ${selectColumns} FROM shops WHERE active = 1 ORDER BY created_at ASC`,
   ).all<ShopRow>());
   const images = await listImagesByShop(rows.results);
-  return rows.results.map((row) => toManagedShop(row, images.get(row.id) ?? []));
+  return rows.results.map((row) => toPublicShop(toManagedShop(row, images.get(row.id) ?? [])));
 }
 
 export async function getPublicShop(slug: string): Promise<PublicShop | null> {
@@ -366,7 +398,7 @@ export async function getPublicShop(slug: string): Promise<PublicShop | null> {
   const row = await getD1().then((db) => db.prepare(
     `SELECT ${selectColumns} FROM shops WHERE slug = ? AND active = 1`,
   ).bind(slug).first<ShopRow>());
-  return row ? toManagedShop(row, await listImages(row.id)) : null;
+  return row ? toPublicShop(toManagedShop(row, await listImages(row.id))) : null;
 }
 
 export async function listAllShops(): Promise<ManagedShop[]> {

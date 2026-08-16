@@ -6,10 +6,13 @@ import { renderMarkdown } from "../../../../db/markdown";
 import { rolesForMember } from "../../../../db/discord-roles";
 import { won } from "../../../../db/store-plans";
 import { botToken } from "../../../../db/discord-bot";
+import { slowDown, tooMany } from "../../../../db/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  if (await tooMany(request, "purchase")) return slowDown();
+
   // Signed in, so the owner has someone to hand the goods to and nobody can
   // place a request under another player's name.
   const buyer = await currentUser(request).catch(() => null);

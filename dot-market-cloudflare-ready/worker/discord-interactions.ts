@@ -12,7 +12,32 @@ type Env = {
   DB: D1Database;
   DISCORD_PUBLIC_KEY?: string;
   DISCORD_BOT_TOKEN?: string;
+  OWNER_DISCORD_ID?: string;
 };
+
+/**
+ * Discord works out what the presser may do and sends it with the interaction,
+ * so there is nothing to look up and nothing to keep in step.
+ *
+ * Either bit means "runs this server". Inviting the bot needs MANAGE_GUILD in
+ * the first place, so a shop's own manager always has one of them.
+ */
+// Written with the constructor rather than the `n` suffix: the build targets a
+// version that has BigInt but not its literal syntax.
+const ADMINISTRATOR = BigInt(8);
+const MANAGE_GUILD = BigInt(32);
+const NONE = BigInt(0);
+
+function runsTheServer(permissions: string | undefined) {
+  if (!permissions) return false;
+  try {
+    // The bitfield outgrows a plain number, so it arrives as a decimal string.
+    const held = BigInt(permissions);
+    return (held & ADMINISTRATOR) !== NONE || (held & MANAGE_GUILD) !== NONE;
+  } catch {
+    return false;
+  }
+}
 
 type Ctx = { waitUntil(promise: Promise<unknown>): void };
 
@@ -75,9 +100,16 @@ export async function handleInteraction(request: Request, env: Env, ctx: Ctx): P
     data?: { custom_id?: string };
     message?: { id?: string };
     channel_id?: string;
-    member?: { user?: { id?: string } };
+    member?: { user?: { id?: string }; permissions?: string };
     user?: { id?: string };
   };
+
+  const actorId = interaction.member?.user?.id ?? interaction.user?.id ?? "";
+  const owner = (env.OWNER_DISCORD_ID ?? "").trim();
+  // Seeing the button is not the same as being allowed to press it. Everyone in
+  // the channel can see it.
+  const allowed = (owner !== "" && actorId === owner)
+    || runsTheServer(interaction.member?.permissions);
 
   if (interaction.type === PONG) return json({ type: PONG });
   if (interaction.type === APPLICATION_COMMAND) {
@@ -88,6 +120,10 @@ export async function handleInteraction(request: Request, env: Env, ctx: Ctx): P
   const customId = interaction.data?.custom_id ?? "";
   const [action, orderId] = customId.split(":");
   if (!orderId) return ephemeral("알 수 없는 버튼입니다.");
+
+  if (!allowed) {
+    return ephemeral("이 버튼은 샵 관리자만 누를 수 있습니다.");
+  }
 
   // Store purchases live in their own tables with their own flow, so they get a
   // handler of their own rather than another branch inside the order one.
@@ -114,7 +150,6 @@ export async function handleInteraction(request: Request, env: Env, ctx: Ctx): P
     orderId,
     channelId: interaction.channel_id ?? "",
     messageId: interaction.message?.id ?? "",
-    actorId: interaction.member?.user?.id ?? interaction.user?.id ?? "",
     origin: new URL(request.url).origin,
   }));
 
@@ -131,7 +166,6 @@ async function applyAction(input: {
   orderId: string;
   channelId: string;
   messageId: string;
-  actorId: string;
   origin: string;
 }) {
   const { env, action, orderId, channelId, messageId, origin } = input;

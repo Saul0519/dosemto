@@ -363,11 +363,21 @@ export async function reorderItemImages(itemId: string, orderedIds: string[]) {
   return true;
 }
 
+/**
+ * Only while the product is on sale.
+ *
+ * The shop and review image routes both refuse once their owner is hidden;
+ * this one did not, so switching a product off left its pictures reachable to
+ * anyone who had kept a link.
+ */
 export async function getStoreImageObjectKey(imageId: string) {
   await ensureTables();
   const db = await getD1();
-  const row = await db.prepare("SELECT object_key FROM store_images WHERE id = ?")
-    .bind(imageId).first<{ object_key: string }>().catch(() => null);
+  const row = await db.prepare(
+    `SELECT i.object_key FROM store_images i
+       JOIN store_items s ON s.id = i.item_id
+      WHERE i.id = ? AND s.active = 1`,
+  ).bind(imageId).first<{ object_key: string }>().catch(() => null);
   return row?.object_key ?? null;
 }
 
@@ -402,6 +412,21 @@ export async function recordPurchase(input: {
     return {
       ok: false,
       error: "지금은 자리가 다 찼습니다. 자리가 나면 다시 열립니다.",
+      status: 409,
+    };
+  }
+
+  // One open request at a time, the same rule the order form and the shop
+  // application already follow. Without it one account can bury the owner's
+  // channel in notifications nobody asked for.
+  const db0 = await getD1();
+  const waiting = await db0.prepare(
+    "SELECT 1 AS found FROM store_purchases WHERE buyer_id = ? AND item_id = ? AND status = 'new' LIMIT 1",
+  ).bind(input.buyerId, item.id).first<{ found: number }>().catch(() => null);
+  if (waiting) {
+    return {
+      ok: false,
+      error: "이미 넣으신 요청이 처리 중입니다. 전달이 끝난 뒤에 다시 신청해 주세요.",
       status: 409,
     };
   }

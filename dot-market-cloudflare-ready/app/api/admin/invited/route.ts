@@ -24,7 +24,9 @@ export async function GET(request: Request) {
   const guildId = url.searchParams.get("guild_id") ?? "";
 
   if (!expectedState || state !== expectedState || !shopId) return done("state");
-  if (!guildId) return done("noguild");
+  // Discord sends this, but it reaches us through the address bar, so it is
+  // treated as something anyone could have typed.
+  if (!/^\d{17,20}$/.test(guildId)) return done("noguild");
 
   const user = await getChatGPTUser();
   if (!user || !(await getShopForManager(shopId, user.email))) return done("forbidden");

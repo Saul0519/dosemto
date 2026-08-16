@@ -2,9 +2,13 @@ import { currentUser } from "../../../db/discord-session";
 import { submitApplication } from "../../../db/applications";
 import { sendDirectMessage } from "../../../db/discord-bot";
 
+import { slowDown, tooMany } from "../../../db/rate-limit";
+
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  if (await tooMany(request, "apply")) return slowDown();
+
   // Signed in, so the owner has an account to reply to and the form cannot be
   // filled in by a passer-by.
   const applicant = await currentUser(request).catch(() => null);

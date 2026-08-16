@@ -1,4 +1,5 @@
 import { countView } from "../../../../db/stats";
+import { tooMany } from "../../../../db/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,10 @@ export const dynamic = "force-dynamic";
  * kind, and a tally.
  */
 export async function POST(request: Request) {
+  // Anyone can call this, so it is capped: the figures are only worth having
+  // if one script cannot invent them.
+  if (await tooMany(request, "view")) return Response.json({ ok: false });
+
   const body = await request.json().catch(() => null) as { event?: unknown } | null;
   const counted = await countView(String(body?.event ?? "")).catch(() => false);
   // Never a hard failure: a missed count is not worth an error in the console.

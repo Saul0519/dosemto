@@ -1,6 +1,7 @@
 import { getChatGPTUser } from "../../../../chatgpt-auth";
 import { fetchLicences, forgetLicenceCache, getLicenceServer, setLicenceServer } from "../../../../../db/licence-server";
 import { isSuperAdmin } from "../../../../../db/shops";
+import { slowDown, tooMany } from "../../../../../db/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -41,9 +42,11 @@ export async function PUT(request: Request) {
 }
 
 /** Reads the list right now, so the owner can see whether it actually works. */
-export async function POST() {
+export async function POST(request: Request) {
   const blocked = await denied();
   if (blocked) return blocked;
+  // Reaches out to another host, so it is capped even for the owner.
+  if (await tooMany(request, "licenceTest")) return slowDown();
 
   forgetLicenceCache();
   const { rows, stale, configured } = await fetchLicences();

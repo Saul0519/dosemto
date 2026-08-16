@@ -1,9 +1,12 @@
 import { currentUser } from "../../../../db/discord-session";
 import { deleteReview, saveReview } from "../../../../db/store-reviews";
+import { slowDown, tooMany } from "../../../../db/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  if (await tooMany(request, "review")) return slowDown();
+
   const author = await currentUser(request).catch(() => null);
   if (!author) return Response.json({ error: "디스코드로 로그인해 주세요." }, { status: 401 });
 

@@ -56,8 +56,14 @@ const fromB64url = (value: string) => {
   return Uint8Array.from(atob(padded + "=".repeat((4 - padded.length % 4) % 4)), (c) => c.charCodeAt(0));
 };
 
-export async function signUser(user: Omit<DiscordUser, "exp">) {
-  const payload: DiscordUser = { ...user, exp: Math.floor(Date.now() / 1000) + REMEMBER_SECONDS };
+/** Long enough to finish what you came to do, short enough to be worth losing. */
+export const SESSION_SECONDS = 12 * 60 * 60;
+
+export async function signUser(user: Omit<DiscordUser, "exp">, seconds = REMEMBER_SECONDS) {
+  // The token carries its own life. Someone who did not ask to be remembered
+  // should not be handed a month-long one just because the cookie goes away
+  // when the browser does.
+  const payload: DiscordUser = { ...user, exp: Math.floor(Date.now() / 1000) + seconds };
   const body = b64url(new TextEncoder().encode(JSON.stringify(payload)));
   const signature = await crypto.subtle.sign("HMAC", await signingKey(), new TextEncoder().encode(body));
   return `${body}.${b64url(new Uint8Array(signature))}`;

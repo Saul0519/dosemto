@@ -9,6 +9,8 @@ import { orderPrice, surchargeFor } from "../../../db/size-surcharge";
 import { deadlineLabel, isOfferedDeadline } from "../../../db/deadlines";
 import { verifyTurnstile } from "../../../db/turnstile";
 
+import { slowDown, tooMany } from "../../../db/rate-limit";
+
 export const dynamic = "force-dynamic";
 
 const MAX_PREVIEW_BYTES = 10 * 1024 * 1024;
@@ -41,6 +43,8 @@ function safeFilename(value: string) {
 }
 
 export async function POST(request: Request) {
+  if (await tooMany(request, "order")) return slowDown();
+
   const contentLength = Number(request.headers.get("content-length") || 0);
   if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
     return Response.json({ error: "주문 파일 전체 크기는 20MB를 넘을 수 없습니다." }, { status: 413 });

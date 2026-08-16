@@ -6,6 +6,7 @@ import {
   discordConfig,
   readCookie,
   safeNextPath,
+  SESSION_SECONDS,
   signUser,
 } from "../../../../db/discord-session";
 
@@ -89,7 +90,11 @@ export async function GET(request: Request) {
     headers: [
       ["location", target.toString()],
       ["set-cookie", clearState],
-      ["set-cookie", cookieHeader(SESSION_COOKIE, await signUser(user), remember ? REMEMBER_SECONDS : null)],
+      ["set-cookie", cookieHeader(
+        SESSION_COOKIE,
+        await signUser(user, remember ? REMEMBER_SECONDS : SESSION_SECONDS),
+        remember ? REMEMBER_SECONDS : null,
+      )],
     ],
   });
 }
