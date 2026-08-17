@@ -65,6 +65,12 @@ export type StorePurchase = {
   buyerId: string;
   buyerName: string;
   handled: boolean;
+  /**
+   * Refused, and therefore closed. A buyer may only have one request open at a
+   * time, so without a way to close one the owner does not want, that buyer
+   * could never ask for anything again.
+   */
+  rejected: boolean;
   createdAt: string;
 };
 
@@ -426,7 +432,7 @@ export async function recordPurchase(input: {
   if (waiting) {
     return {
       ok: false,
-      error: "이미 넣으신 요청이 처리 중입니다. 전달이 끝난 뒤에 다시 신청해 주세요.",
+      error: "이미 넣으신 요청이 처리 중입니다. 전달이 끝나거나 거절되면 다시 신청하실 수 있습니다.",
       status: 409,
     };
   }
@@ -455,6 +461,7 @@ export async function recordPurchase(input: {
     buyerId: input.buyerId,
     buyerName: input.buyerName.slice(0, 80),
     handled: false,
+    rejected: false,
     createdAt: new Date().toISOString(),
   };
 
@@ -488,6 +495,7 @@ function toPurchase(row: PurchaseRow): StorePurchase {
     buyerId: row.buyer_id,
     buyerName: row.buyer_name,
     handled: row.status === "handled",
+    rejected: row.status === "rejected",
     createdAt: row.created_at,
   };
 }
@@ -558,11 +566,19 @@ export async function getPurchaseByOrderNo(orderNo: string): Promise<StorePurcha
   return row ? toPurchase(row) : null;
 }
 
-export async function setPurchaseHandled(id: string, handled: boolean) {
+/** The three places a request can be: waiting, handed over, or refused. */
+export const PURCHASE_STATUSES = ["new", "handled", "rejected"] as const;
+export type PurchaseStatus = typeof PURCHASE_STATUSES[number];
+
+export function isPurchaseStatus(value: unknown): value is PurchaseStatus {
+  return typeof value === "string" && (PURCHASE_STATUSES as readonly string[]).includes(value);
+}
+
+export async function setPurchaseStatus(id: string, status: PurchaseStatus) {
   await ensureTables();
   const db = await getD1();
   const changed = await db.prepare("UPDATE store_purchases SET status = ? WHERE id = ?")
-    .bind(handled ? "handled" : "new", id).run().catch(() => null);
+    .bind(status, id).run().catch(() => null);
   return Boolean(changed?.meta.changes);
 }
 

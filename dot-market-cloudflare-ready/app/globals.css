@@ -1888,7 +1888,7 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
   background: var(--paper-sunk);
   font-size: 11px;
 }
-.my-purchase-head .tone-done, .my-purchase-head .tone-new {
+.my-purchase-head .tone-done, .my-purchase-head .tone-new, .my-purchase-head .tone-refused {
   margin-left: auto;
   padding: 3px 10px;
   border-radius: 999px;
@@ -1897,6 +1897,8 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 }
 .my-purchase-head .tone-done { background: var(--sage); color: var(--sage-ink); }
 .my-purchase-head .tone-new { background: var(--paper-sunk); color: var(--ink-3); }
+.my-purchase-head .tone-refused { background: var(--danger-soft); color: var(--danger-ink); }
+.application-head em.tone-refused { color: var(--danger-ink); }
 .my-purchases dl { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0; font-size: 12px; }
 .my-purchases dl div { display: flex; gap: 7px; }
 .my-purchases dt { color: var(--ink-3); }

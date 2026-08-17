@@ -149,8 +149,9 @@ export default async function MyOrdersPage() {
                       <div className="my-purchase-head">
                         <b>{purchase.itemName}</b>
                         <code>{purchase.planLabel}</code>
-                        <span className={purchase.handled ? "tone-done" : "tone-new"}>
-                          {purchase.handled ? "전달 완료" : "처리 대기"}
+                        <span className={purchase.rejected ? "tone-refused"
+                          : purchase.handled ? "tone-done" : "tone-new"}>
+                          {purchase.rejected ? "거절됨" : purchase.handled ? "전달 완료" : "처리 대기"}
                         </span>
                       </div>
                       <dl>
@@ -162,7 +163,9 @@ export default async function MyOrdersPage() {
                       <div className="my-order-actions">
                         {/* The purchase record outlives the product, so both links
                             only make sense while the product is still there. */}
-                        <Link href={`/store/licence/${purchase.orderNo}`}>이용 안내</Link>
+                        {!purchase.rejected && (
+                          <Link href={`/store/licence/${purchase.orderNo}`}>이용 안내</Link>
+                        )}
                         {purchase.itemExists ? (
                           <>
                             <Link href={`/store/${purchase.itemId}`}>상품 보기</Link>

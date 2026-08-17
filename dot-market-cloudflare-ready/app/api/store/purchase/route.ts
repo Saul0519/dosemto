@@ -95,17 +95,27 @@ async function notify(purchase: StorePurchase) {
         ],
         timestamp: purchase.createdAt,
       }],
-      // Pressing this marks the purchase handed over and sends the buyer their
-      // review link, so the whole handover happens without opening the site.
+      // Both endings live here so neither needs the site. Refusing matters as
+      // much as delivering: a buyer may only have one request open, so a request
+      // left alone is a buyer who can never ask again.
       components: [{
         type: 1,
-        components: [{
-          type: 2,
-          style: 3,
-          label: "전달 완료",
-          custom_id: `storedone:${purchase.id}`,
-          emoji: { name: "📦" },
-        }],
+        components: [
+          {
+            type: 2,
+            style: 3,
+            label: "전달 완료",
+            custom_id: `storedone:${purchase.id}`,
+            emoji: { name: "📦" },
+          },
+          {
+            type: 2,
+            style: 4,
+            label: "거절",
+            custom_id: `storereject:${purchase.id}`,
+            emoji: { name: "🚫" },
+          },
+        ],
       }],
     }),
   });

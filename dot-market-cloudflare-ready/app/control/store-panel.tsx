@@ -215,15 +215,21 @@ export default function StorePanel({
     say(`라이선스 ${result.count}개를 읽었습니다.${states ? ` (${states})` : ""}`);
   }, "확인하지 못했습니다.");
 
-  const markPurchase = (purchase: StorePurchase, handled: boolean) => run(async () => {
+  const SAID = {
+    handled: "전달 완료로 옮겼습니다. 이제 구매자가 후기를 남길 수 있습니다.",
+    rejected: "거절했습니다. 구매자는 다시 신청할 수 있습니다.",
+    new: "다시 대기로 되돌렸습니다.",
+  };
+
+  const markPurchase = (purchase: StorePurchase, status: keyof typeof SAID) => run(async () => {
     const response = await fetch(`/api/control/store/purchases/${purchase.id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ handled }),
+      body: JSON.stringify({ status }),
     });
     const result = await readResult<{ purchases: StorePurchase[] }>(response, "처리하지 못했습니다.");
     setPurchases(result.purchases);
-    say(handled ? "전달 완료로 옮겼습니다. 이제 구매자가 후기를 남길 수 있습니다." : "다시 대기로 되돌렸습니다.");
+    say(SAID[status]);
   }, "처리하지 못했습니다.");
 
   const removePurchase = (purchase: StorePurchase) => {
@@ -262,7 +268,8 @@ export default function StorePanel({
     patch(item.id, { plans });
   };
 
-  const waiting = purchases.filter((purchase) => !purchase.handled).length;
+  // Refused requests are finished business, so they are not what is waiting.
+  const waiting = purchases.filter((purchase) => !purchase.handled && !purchase.rejected).length;
 
   return (
     <>
@@ -274,12 +281,14 @@ export default function StorePanel({
         {purchases.length === 0 ? (
           <p className="field-help">아직 들어온 구매 요청이 없습니다.</p>
         ) : purchases.map((purchase) => (
-          <article key={purchase.id} className={purchase.handled ? "handled" : ""}>
+          <article key={purchase.id} className={purchase.handled || purchase.rejected ? "handled" : ""}>
             <div className="application-head">
               <b>{purchase.itemName}</b>
               <code>{purchase.planLabel}</code>
               <b className="store-price-tag">{won(purchase.price)}</b>
-              {purchase.handled ? <em>전달 완료</em> : <i>대기 중</i>}
+              {purchase.rejected
+                ? <em className="tone-refused">거절</em>
+                : purchase.handled ? <em>전달 완료</em> : <i>대기 중</i>}
             </div>
             <div className="application-who">
               <span>{purchase.mcNick}</span>
@@ -294,9 +303,20 @@ export default function StorePanel({
             )}
             {purchase.note && <p className="application-note">{purchase.note}</p>}
             <div className="application-actions">
-              <button type="button" onClick={() => markPurchase(purchase, !purchase.handled)} disabled={busy}>
-                {purchase.handled ? "대기로 되돌리기" : "전달 완료로"}
-              </button>
+              {purchase.handled || purchase.rejected ? (
+                <button type="button" onClick={() => markPurchase(purchase, "new")} disabled={busy}>
+                  대기로 되돌리기
+                </button>
+              ) : (
+                <>
+                  <button type="button" onClick={() => markPurchase(purchase, "handled")} disabled={busy}>
+                    전달 완료로
+                  </button>
+                  <button type="button" onClick={() => markPurchase(purchase, "rejected")} disabled={busy}>
+                    거절
+                  </button>
+                </>
+              )}
               <button type="button" className="danger" onClick={() => removePurchase(purchase)} disabled={busy}>
                 삭제
               </button>

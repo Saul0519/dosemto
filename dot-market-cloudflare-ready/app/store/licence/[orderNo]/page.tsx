@@ -58,6 +58,21 @@ export default async function LicencePage({ params }: { params: Promise<{ orderN
     );
   }
 
+  // The page below states that a licence was issued for this order. For a
+  // refused request that is simply untrue, so it must not be shown.
+  if (purchase.rejected) {
+    return (
+      <Shell>
+        <div className="action-card">
+          <p className="eyebrow">CLOSED</p>
+          <h1>거절된 요청입니다</h1>
+          <p>주문 {number}는 거절되어 이용 권한이 발급되지 않았습니다. 다시 신청하실 수 있습니다.</p>
+          <Link className="btn btn-line" href="/store">상점 보기</Link>
+        </div>
+      </Shell>
+    );
+  }
+
   // Read straight from the product rather than the purchase, so an amended
   // notice reaches everyone who already holds a copy.
   const item = purchase.itemId ? await getItem(purchase.itemId).catch(() => null) : null;

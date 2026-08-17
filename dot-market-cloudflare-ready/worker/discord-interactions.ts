@@ -127,8 +127,8 @@ export async function handleInteraction(request: Request, env: Env, ctx: Ctx): P
 
   // Store purchases live in their own tables with their own flow, so they get a
   // handler of their own rather than another branch inside the order one.
-  if (action === "storedone") {
-    ctx.waitUntil(handStoreItemOver({
+  if (action === "storedone" || action === "storereject") {
+    ctx.waitUntil((action === "storedone" ? handStoreItemOver : refuseStoreRequest)({
       env,
       purchaseId: orderId,
       channelId: interaction.channel_id ?? "",
@@ -316,6 +316,85 @@ async function applyAction(input: {
       }),
     }).catch(() => undefined);
   }
+}
+
+/**
+ * Refuses a store request and tells the buyer, so they are free to ask again.
+ *
+ * Only a request still waiting can be refused — something already handed over
+ * is done, and pressing this twice must not send the same person two refusals.
+ *
+ * No reason is asked for. One is worth having, but a button cannot collect it,
+ * and a refusal the buyer never hears about is worse than a bare one: they would
+ * sit blocked, waiting for an answer that had already been given.
+ */
+async function refuseStoreRequest(input: {
+  env: Env;
+  purchaseId: string;
+  channelId: string;
+  messageId: string;
+  origin: string;
+}) {
+  const { env, purchaseId, channelId, messageId } = input;
+  const token = env.DISCORD_BOT_TOKEN?.trim();
+  if (!env.DB || !token) return;
+
+  const purchase = await env.DB.prepare(
+    `SELECT order_no, item_name, plan_label, buyer_id
+       FROM store_purchases WHERE id = ?`,
+  ).bind(purchaseId).first<{
+    order_no: string | null; item_name: string; plan_label: string; buyer_id: string;
+  }>().catch(() => null);
+  if (!purchase) return;
+
+  const updated = await env.DB.prepare(
+    "UPDATE store_purchases SET status = 'rejected' WHERE id = ? AND status = 'new'",
+  ).bind(purchaseId).run().catch(() => null);
+  if (!updated?.meta.changes) return;
+
+  const api = "https://discord.com/api/v10";
+  const headers = {
+    authorization: `Bot ${token}`,
+    "content-type": "application/json",
+    "user-agent": "DotMarket (https://dosemto.store, 1.0)",
+  };
+
+  const orderNo = purchase.order_no ?? purchaseId.slice(0, 8).toUpperCase();
+
+  if (channelId && messageId) {
+    await fetch(`${api}/channels/${channelId}/messages/${messageId}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({
+        content: `🚫 **${purchase.item_name}** · ${purchase.plan_label} · 거절 (${orderNo})`,
+        components: [],
+      }),
+    }).catch(() => undefined);
+  }
+
+  const dm = {
+    content: `**${purchase.item_name}** 구매 요청이 거절되었습니다.`,
+    embeds: [{
+      title: `주문 ${orderNo}`,
+      color: 0xb3261e,
+      description: `${purchase.plan_label}\n\n`
+        + "이 요청은 닫혔습니다. 다시 신청하실 수 있습니다.\n"
+        + "이유는 이 채널에 물어봐 주세요.",
+    }],
+  };
+
+  const sent = await sendDm(api, headers, purchase.buyer_id, dm);
+  if (sent || !channelId) return;
+
+  await fetch(`${api}/channels/${channelId}/messages`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      content: `<@${purchase.buyer_id}> ${dm.content}`,
+      allowed_mentions: { users: [purchase.buyer_id] },
+      embeds: dm.embeds,
+    }),
+  }).catch(() => undefined);
 }
 
 /**
