@@ -24,6 +24,9 @@ export const LIMITS = {
   order: { max: 10, windowSeconds: 3600 },
   view: { max: 300, windowSeconds: 3600 },
   licenceTest: { max: 30, windowSeconds: 3600 },
+  // A ledger page is a few dozen faces at once, and they are cached for a
+  // day after. Only something walking made-up names reaches this.
+  skin: { max: 600, windowSeconds: 3600 },
 } satisfies Record<string, Limit>;
 
 async function getD1() {

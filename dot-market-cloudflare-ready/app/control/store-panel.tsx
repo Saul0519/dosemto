@@ -4,6 +4,7 @@ import { ChangeEvent, useState } from "react";
 import type { CSSProperties } from "react";
 import { readResult } from "../read-result";
 import SortableImages from "../sortable-images";
+import { McName } from "../mc-head";
 import type { StoreItem, StorePurchase } from "../../db/store";
 import type { ModeratedStoreReview } from "../../db/store-reviews";
 import {
@@ -54,8 +55,14 @@ const LICENCE_TEMPLATE = `## 저작권 안내
 
 export default function StorePanel({
   initialItems, initialPurchases, initialReviews, initialChannelId, initialGuildId,
-  licenceServer, say, busy, setBusy,
+  licenceServer, say, busy, setBusy, show,
 }: {
+  /**
+   * Which half to draw. The whole panel stays mounted either way — its state is
+   * a page's worth of half-finished edits, and losing those on a tab change
+   * would be worse than rendering a hidden block.
+   */
+  show: "store" | "reviews";
   initialItems: StoreItem[];
   initialPurchases: StorePurchase[];
   initialReviews: ModeratedStoreReview[];
@@ -273,6 +280,7 @@ export default function StorePanel({
 
   return (
     <>
+      <div className="control-tab" hidden={show !== "store"}>
       <div className="control-list-head">
         <h2>상점 구매 요청</h2>
         <span>대기 {waiting}건 · 전체 {purchases.length}건</span>
@@ -291,7 +299,7 @@ export default function StorePanel({
                 : purchase.handled ? <em>전달 완료</em> : <i>대기 중</i>}
             </div>
             <div className="application-who">
-              <span>{purchase.mcNick}</span>
+              <McName nick={purchase.mcNick}/>
               <code>{purchase.buyerName} · {purchase.buyerId}</code>
               <code>주문 {purchase.orderNo}</code>
               <time dateTime={purchase.createdAt}>{purchase.createdAt.slice(0, 10)}</time>
@@ -620,6 +628,9 @@ export default function StorePanel({
         ))}
       </div>
 
+      </div>
+
+      <div className="control-tab" hidden={show !== "reviews"}>
       <div className="control-list-head">
         <h2>상점 후기</h2>
         <span>{reviews.length}개 · 숨김 {reviews.filter((review) => review.hidden).length}개</span>
@@ -650,6 +661,7 @@ export default function StorePanel({
             </div>
           </article>
         ))}
+      </div>
       </div>
     </>
   );

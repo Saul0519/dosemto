@@ -51,6 +51,8 @@ type ManagedOrder = {
   cropLabel: string;
   originalFilename: string;
   hasOriginal: boolean;
+  /** The in-game account. Null on orders taken before the form asked for it. */
+  playerName: string | null;
   status: OrderStatus;
   webhookSent: boolean;
   createdAt: string;

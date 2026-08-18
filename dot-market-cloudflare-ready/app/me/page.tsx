@@ -7,6 +7,7 @@ import { listPurchasesForUser } from "../../db/store";
 import { getReviewForPurchase } from "../../db/store-reviews";
 import { SITE } from "../site-content";
 import AccountChip from "../account-chip";
+import { McName } from "../mc-head";
 
 export const dynamic = "force-dynamic";
 
@@ -157,7 +158,7 @@ export default async function MyOrdersPage() {
                       <dl>
                         <div><dt>주문번호</dt><dd><code>{purchase.orderNo}</code></dd></div>
                         <div><dt>금액</dt><dd>{won(purchase.price)}</dd></div>
-                        <div><dt>받을 계정</dt><dd>{purchase.mcNick}</dd></div>
+                        <div><dt>받을 계정</dt><dd><McName nick={purchase.mcNick} size={18}/></dd></div>
                         <div><dt>요청일</dt><dd>{purchase.createdAt.slice(0, 10)}</dd></div>
                       </dl>
                       <div className="my-order-actions">

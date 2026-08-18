@@ -64,7 +64,15 @@ const PRIVATE = /^\/(me|control|admin|login)(\/|$)|^\/(review|store\/(licence|re
 export function harden(response: Response, pathname: string): Response {
   // A streamed body must not be read here; copying the response preserves it.
   const out = new Response(response.body, response);
+
+  // A route that set its own policy meant it, and it will be tighter than this
+  // one rather than looser — the site policy has to keep `unsafe-inline` for
+  // the framework's own scripts, so overwriting a route's stricter policy with
+  // it would be a downgrade. Everything that sets nothing gets the default.
+  const ownPolicy = out.headers.get("content-security-policy");
+
   for (const [name, value] of HEADERS) out.headers.set(name, value);
+  if (ownPolicy) out.headers.set("content-security-policy", ownPolicy);
 
   if (PRIVATE.test(pathname)) {
     out.headers.set("cache-control", "private, no-store, max-age=0");

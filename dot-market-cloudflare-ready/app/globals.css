@@ -1895,7 +1895,7 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
   font-size: 11px;
   font-weight: 700;
 }
-.my-purchase-head .tone-done { background: var(--sage); color: var(--sage-ink); }
+.my-purchase-head .tone-done { background: var(--sage-soft); color: var(--sage-ink); }
 .my-purchase-head .tone-new { background: var(--paper-sunk); color: var(--ink-3); }
 .my-purchase-head .tone-refused { background: var(--danger-soft); color: var(--danger-ink); }
 .application-head em.tone-refused { color: var(--danger-ink); }
@@ -2086,7 +2086,7 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 .stat-funnel-rows em {
   padding: 2px 7px;
   border-radius: 999px;
-  background: var(--sage);
+  background: var(--sage-soft);
   color: var(--sage-ink);
   font-size: 11px;
   font-style: normal;
@@ -2599,3 +2599,234 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
   line-height: 1.7;
   resize: vertical;
 }
+
+/* ── 총괄 화면: 영역 나누기 ─────────────────────────────────────── */
+
+.control-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 8px var(--gutter);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(10px);
+  scrollbar-width: none;
+}
+.control-tabs::-webkit-scrollbar { display: none; }
+.control-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .14s, color .14s;
+}
+.control-tabs button:hover { background: var(--paper-sunk); color: var(--ink); }
+.control-tabs button.on { background: var(--ink); color: var(--ink-invert); }
+.control-tabs button i {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--coral);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-style: normal;
+}
+.control-tabs button.on i { background: var(--coral); }
+
+/* A hidden panel is still mounted, so its half-typed edits survive a tab move. */
+.control-tab[hidden] { display: none; }
+
+/* ── 매출 장부 ──────────────────────────────────────────────────── */
+
+.ledger-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+  margin-bottom: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+}
+.ledger-controls > label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+.ledger-controls select,
+.ledger-controls input[type="text"],
+.ledger-controls input:not([type]) {
+  padding: 7px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 9px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+.ledger-find { flex: 1 1 180px; }
+.ledger-find input { width: 100%; }
+.ledger-switch {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 7px !important;
+  padding-bottom: 8px;
+  color: var(--ink-2) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  cursor: pointer;
+}
+.ledger-actions { display: flex; gap: 8px; margin-left: auto; }
+.ledger-actions button {
+  padding: 8px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 9px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ledger-actions button:hover:not(:disabled) { border-color: var(--line-3); background: var(--paper-sunk); }
+.ledger-actions button.primary { border-color: var(--ink); background: var(--ink); color: var(--ink-invert); }
+.ledger-actions button:disabled { opacity: .45; cursor: default; }
+
+/* The table is the one thing here that may be wider than the phone it is on. */
+.ledger-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+}
+table.ledger {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+table.ledger th, table.ledger td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+table.ledger thead th {
+  position: sticky;
+  top: 0;
+  background: var(--paper-sunk);
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+table.ledger .num { text-align: right; font-family: var(--font-mono); white-space: nowrap; }
+table.ledger td code { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); user-select: all; }
+/* Not takings, so it should not read with the same weight as the rows that are. */
+table.ledger tr.faint td { color: var(--ink-3); }
+table.ledger tr.faint td.num { text-decoration: line-through; }
+table.ledger tbody tr:hover td { background: var(--paper); }
+
+.ledger-group th { background: var(--paper-deep); }
+.ledger-group button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ledger-group button i {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-style: normal;
+}
+.ledger-group th.num { color: var(--ink); font-weight: 700; }
+
+.ledger-kind {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ledger-kind.shop { background: var(--violet-soft); color: var(--violet); }
+.ledger-kind.store { background: var(--amber-soft); color: var(--amber-ink); }
+.ledger-nobody { color: var(--line-3); }
+
+.ledger-status {
+  padding: 4px 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ledger-status.is-completed, .ledger-status.is-handled {
+  border-color: transparent; background: var(--sage-soft); color: var(--sage-ink);
+}
+.ledger-status.is-cancelled, .ledger-status.is-rejected {
+  border-color: transparent; background: var(--danger-soft); color: var(--danger-ink);
+}
+.ledger-status.is-working { border-color: transparent; background: var(--amber-soft); color: var(--amber-ink); }
+.ledger-status:disabled { opacity: .55; cursor: default; }
+
+table.ledger tfoot th {
+  border-bottom: 0;
+  background: var(--paper-sunk);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ── 머리 스킨 ──────────────────────────────────────────────────── */
+
+.mc-head {
+  flex: 0 0 auto;
+  border-radius: 4px;
+  background: var(--paper-sunk);
+  image-rendering: pixelated;
+  object-fit: cover;
+}
+.mc-name { display: inline-flex; align-items: center; gap: 7px; }
+.mc-name > span { font-size: 12px; font-weight: 700; }
+
+@media (max-width: 720px) {
+  .ledger-actions { width: 100%; margin-left: 0; }
+  .ledger-actions button { flex: 1; }
+}
+
+/* A Discord display name, not an in-game account — so no head beside it. */
+.ledger-discord { font-size: 12px; font-weight: 600; color: var(--ink-2); }

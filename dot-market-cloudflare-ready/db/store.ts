@@ -99,7 +99,8 @@ async function getD1() {
 
 let migrateReady: Promise<void> | null = null;
 
-async function ensureTables() {
+/** Exported so anything reading the store tables can make sure they are there first. */
+export async function ensureTables() {
   if (!migrateReady) {
     migrateReady = migrate().catch((error) => { migrateReady = null; throw error; });
   }

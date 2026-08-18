@@ -66,7 +66,8 @@ async function getD1() {
  */
 let migrateOrdersTableReady: Promise<void> | null = null;
 
-async function ensureOrdersTable() {
+/** Exported so anything reading the orders table can make sure it is there first. */
+export async function ensureOrdersTable() {
   if (!migrateOrdersTableReady) {
     migrateOrdersTableReady = migrateOrdersTable().catch((error) => { migrateOrdersTableReady = null; throw error; });
   }
