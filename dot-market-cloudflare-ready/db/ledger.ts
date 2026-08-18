@@ -75,9 +75,12 @@ export async function readLedger(limit = 2000): Promise<LedgerRow[]> {
       kind: "shop",
       id: row.id,
       at: row.created_at,
-      // Drawing orders predate order numbers, so the short form of the id
-      // stands in — the same one the order screen has always shown.
-      orderNo: row.id.slice(0, 8).toUpperCase(),
+      // A drawing order's id is its order number: `DO-20260818-A1B2C3D4`, and
+      // that whole string is what the customer sees, what the review link uses
+      // and what the shop is told in Discord. It must not be shortened — the
+      // first characters are the date, so every order placed the same year
+      // would read as the same number.
+      orderNo: row.id,
       source: row.shop_name,
       sourceId: row.shop_id,
       customer: (row.player_name ?? "").trim(),

@@ -12,7 +12,7 @@ const COLUMNS = [
   { header: "구분", width: 9 },
   { header: "샵 · 상품", width: 22 },
   { header: "손님", width: 18 },
-  { header: "주문번호", width: 14 },
+  { header: "주문번호", width: 23 },
   { header: "상태", width: 12 },
   { header: "금액", width: 13 },
   { header: "매출 반영", width: 11 },

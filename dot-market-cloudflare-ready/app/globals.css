@@ -2719,7 +2719,7 @@ figcaption { min-height: 30px; display: flex; align-items: flex-start; justify-c
 }
 table.ledger {
   width: 100%;
-  min-width: 720px;
+  min-width: 820px;
   border-collapse: collapse;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
@@ -2741,7 +2741,14 @@ table.ledger thead th {
   white-space: nowrap;
 }
 table.ledger .num { text-align: right; font-family: var(--font-mono); white-space: nowrap; }
-table.ledger td code { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); user-select: all; }
+table.ledger td code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-3);
+  /* A drawing order number is one word and must stay one word to be copied. */
+  white-space: nowrap;
+  user-select: all;
+}
 /* Not takings, so it should not read with the same weight as the rows that are. */
 table.ledger tr.faint td { color: var(--ink-3); }
 table.ledger tr.faint td.num { text-decoration: line-through; }
