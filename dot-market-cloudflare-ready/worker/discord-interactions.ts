@@ -39,7 +39,21 @@ function runsTheServer(permissions: string | undefined) {
   }
 }
 
-type Ctx = { waitUntil(promise: Promise<unknown>): void };
+type Ctx = { waitUntil(promise: Promise<unknown>): void } | undefined;
+
+/**
+ * Runs the slow half after the reply has gone.
+ *
+ * Cloudflare always hands over an execution context; the local production
+ * runner calls fetch with neither env nor context, and reaching into a missing
+ * one there turned a signature check into a 500. Without a context there is
+ * nothing keeping the worker alive, so the work simply runs unattended — which
+ * is exactly right for the one place that happens.
+ */
+function after(ctx: Ctx, work: Promise<unknown>) {
+  if (ctx) ctx.waitUntil(work);
+  else void work;
+}
 
 const PONG = 1;
 const APPLICATION_COMMAND = 2;
@@ -89,9 +103,11 @@ const json = (value: unknown) =>
 const ephemeral = (content: string) =>
   json({ type: CHANNEL_MESSAGE_WITH_SOURCE, data: { content, flags: EPHEMERAL } });
 
-export async function handleInteraction(request: Request, env: Env, ctx: Ctx): Promise<Response> {
+export async function handleInteraction(request: Request, env: Env | undefined, ctx: Ctx): Promise<Response> {
   const body = await request.text();
-  if (!await verify(request, body, env.DISCORD_PUBLIC_KEY ?? "")) {
+  // No key means nothing can be trusted, so nothing is done — the same answer
+  // as a signature that does not check out.
+  if (!await verify(request, body, env?.DISCORD_PUBLIC_KEY ?? "")) {
     return new Response("bad signature", { status: 401 });
   }
 
@@ -105,7 +121,7 @@ export async function handleInteraction(request: Request, env: Env, ctx: Ctx): P
   };
 
   const actorId = interaction.member?.user?.id ?? interaction.user?.id ?? "";
-  const owner = (env.OWNER_DISCORD_ID ?? "").trim();
+  const owner = (env?.OWNER_DISCORD_ID ?? "").trim();
   // Seeing the button is not the same as being allowed to press it. Everyone in
   // the channel can see it.
   const allowed = (owner !== "" && actorId === owner)
@@ -128,8 +144,8 @@ export async function handleInteraction(request: Request, env: Env, ctx: Ctx): P
   // Store purchases live in their own tables with their own flow, so they get a
   // handler of their own rather than another branch inside the order one.
   if (action === "storedone" || action === "storereject") {
-    ctx.waitUntil((action === "storedone" ? handStoreItemOver : refuseStoreRequest)({
-      env,
+    after(ctx, (action === "storedone" ? handStoreItemOver : refuseStoreRequest)({
+      env: env as Env,
       purchaseId: orderId,
       channelId: interaction.channel_id ?? "",
       messageId: interaction.message?.id ?? "",
@@ -144,8 +160,8 @@ export async function handleInteraction(request: Request, env: Env, ctx: Ctx): P
 
   // Acknowledge first, then do the work — the three-second budget is for this
   // reply, and a D1 write plus two Discord calls will not always fit inside it.
-  ctx.waitUntil(applyAction({
-    env,
+  after(ctx, applyAction({
+    env: env as Env,
     action: action as "accept" | "reject" | "complete",
     orderId,
     channelId: interaction.channel_id ?? "",
